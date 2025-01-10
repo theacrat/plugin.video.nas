@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+	<category id="general" label="General">
+		<setting label="Log in to Stremio" type="action" action="RunPlugin(plugin://plugin.video.nas/?mode=stremio.authenticate)" visible="eq(2,)"/>
+		<setting label="Log out of Stremio" type="action" action="RunPlugin(plugin://plugin.video.nas/?mode=stremio.revoke_authentication)" visible="!eq(1,)"/>
+		<setting id="stremio.token" type="text" visible="false"/>
+		<setting id="stremio.user" label="Stremio user:" type="text" enable="false" visible="!eq(-1,)"/>
+	</category>
+</settings>

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window>
+    <defaultcontrol always="true">2000</defaultcontrol>
+    <controls>
+        <control type="group">
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1920</width>
+                <height>1080</height>
+                <texture colordiffuse="FF000000">nas_common/white.png</texture>
+            </control>
+            <control type="image">
+                <left>0</left>
+                <top>0</top>
+                <width>1920</width>
+                <height>1080</height>
+                <aspectratio>scale</aspectratio>
+                <texture>$INFO[Window.Property(fanart)]</texture>
+                <animation effect="fade" end="25" time="120" tween="sine">WindowOpen</animation>
+            </control>
+        </control>
+        <control type="group">
+            <control type="group">
+                <control type="image">
+                    <aspectratio align="center" aligny="center">keep</aspectratio>
+                    <top>5</top>
+                    <height max="90">auto</height>
+                    <width>1920</width>
+                    <align>center</align>
+                    <aligny>top</aligny>
+                    <texture background="true">$INFO[Window.Property(clearlogo)]</texture>
+                    <visible>!String.IsEmpty(Window.Property(clearlogo))</visible>
+                </control>
+                <control type="label">
+                    <top>5</top>
+                    <width>1920</width>
+                    <height>30</height>
+                    <font>font60</font>
+                    <textcolor>FFCCCCCC</textcolor>
+                    <align>center</align>
+                    <aligny>top</aligny>
+                    <label>[B]$INFO[Window.Property(title)][/B]</label>
+                    <visible>String.IsEmpty(Window.Property(clearlogo))</visible>
+                </control>
+                <control type="label">
+                    <top>95</top>
+                    <width>1920</width>
+                    <height>20</height>
+                    <font>font12</font>
+                    <textcolor>FFCCCCCC</textcolor>
+                    <align>center</align>
+                    <aligny>top</aligny>
+                    <label>$INFO[Window.Property(remaining_sources)]</label>
+                    <visible>!String.IsEmpty(Window.Property(remaining_sources))</visible>
+                </control>
+                <control type="list" id="2002">
+                    <pagecontrol>2064</pagecontrol>
+                    <left>110</left>
+                    <top>135</top>
+                    <width>1700</width>
+                    <height>930</height>
+                    <onup>2002</onup>
+                    <ondown>2002</ondown>
+                    <onleft>2100</onleft>
+                    <onright>2064</onright>
+                    <scrolltime tween="cubic" easing="out">500</scrolltime>
+                    <orientation>Vertical</orientation>
+                    <focusposition>3</focusposition>
+                    <movement>4</movement>
+                    <itemlayout height="175" width="1700">
+                        <control type="image">
+                            <texture colordiffuse="FF1F2020" border="30">nas_common/white.png</texture>
+                            <width>1700</width>
+                            <height>150</height>
+                            <left>0</left>
+                        </control>
+                        <control type="group">
+                            <control type="textbox">
+                                <label>$INFO[ListItem.Property(name)]</label>
+                                <font>font12</font>
+                                <textcolor>FFCCCCCC</textcolor>
+                                <align>right</align>
+                                <aligny>center</aligny>
+                                <width>175</width>
+                                <height>150</height>
+                                <left>25</left>
+                            </control>
+                            <control type="label">
+                                <label>$INFO[ListItem.Property(description)]</label>
+                                <font>font12</font>
+                                <textcolor>FFCCCCCC</textcolor>
+                                <align>left</align>
+                                <aligny>center</aligny>
+                                <width max="1350">auto</width>
+                                <height>150</height>
+                                <left>250</left>
+                            </control>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout height="175" width="1700">
+                        <control type="group">
+                            <control type="group">
+                                <animation effect="fade" start="100" end="60" time="0" condition="!Control.HasFocus(2002)">Conditional</animation>
+                                <height>150</height>
+                                <control type="image">
+                                    <texture colordiffuse="FFCCCCCC" border="30">nas_common/white.png</texture>
+                                    <width>1700</width>
+                                </control>
+                                <control type="image">
+                                    <texture colordiffuse="$INFO[ListItem.Property(highlight)]" border="30">nas_common/white.png</texture>
+                                    <width>225</width>
+                                </control>
+                            </control>
+                            <control type="group">
+                                <control type="textbox">
+                                    <label>$INFO[ListItem.Property(name)]</label>
+                                    <font>font12</font>
+                                    <textcolor>FF1F2020</textcolor>
+                                    <align>right</align>
+                                    <aligny>center</aligny>
+                                    <width>175</width>
+                                    <height>150</height>
+                                    <left>25</left>
+                                </control>
+                                <control type="label">
+                                    <label>$INFO[ListItem.Property(description)]</label>
+                                    <font>font12</font>
+                                    <textcolor>FF1F2020</textcolor>
+                                    <align>left</align>
+                                    <aligny>center</aligny>
+                                    <width max="1350">auto</width>
+                                    <height>150</height>
+                                    <left>250</left>
+                                </control>
+                            </control>
+                        </control>
+                    </focusedlayout>
+                </control>
+                <control type="scrollbar" id="2064">
+                    <top>135</top>
+                    <left>1890</left>
+                    <width>15</width>
+                    <height>930</height>
+                    <onleft>2002</onleft>
+                    <onright>2002</onright>
+                    <texturesliderbackground colordiffuse="FF1F2020">nas_common/white.png</texturesliderbackground>
+                    <texturesliderbar colordiffuse="FF555556">nas_common/white.png</texturesliderbar>
+                    <texturesliderbarfocus colordiffuse="FFCCCCCC">nas_common/white.png</texturesliderbarfocus>
+                    <showonepage>false</showonepage>
+                    <orientation>vertical</orientation>
+                    <visible>Control.IsVisible(2002)</visible>
+                </control>
+            </control>
+        </control>
+    </controls>
+</window>
