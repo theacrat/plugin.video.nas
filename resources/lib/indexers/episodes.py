@@ -30,12 +30,13 @@ class Episodes(BaseIndexer[Video]):
     def _build_content(self, item: Video, position):
         if item.season != self.season and self.season >= 0:
             return
-        # cm = []
+
         list_item = item.build_list_item()
 
         url_params = build_url(
             {
-                "mode": "playback.media",
+                "mode": "playback",
+                "func": "media",
                 "id": self.series.id,
                 "episode": position,
                 "media_type": "series",

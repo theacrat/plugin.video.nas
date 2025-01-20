@@ -26,7 +26,7 @@ class StremioCatalog:
 
     @cached_property
     def title(self):
-        return f"{self.name} - {self.type[:1].upper() + self.type[1:]}"
+        return f"{self.name} - {self.type[:1].upper()}{self.type[1:]}"
 
 
 @dataclass

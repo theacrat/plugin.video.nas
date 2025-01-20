@@ -7,12 +7,10 @@ from enum import IntEnum, auto
 from xbmc import InfoTagVideo
 from xbmcplugin import addDirectoryItems, setContent, setPluginCategory, endOfDirectory
 
-from apis.StremioAPI import stremio_api
 from classes.StremioAddon import StremioCatalog
 from classes.StremioMeta import StremioMeta
 from indexers.base_indexer import BaseIndexer
-from modules.kodi_utils import build_url, log, run_plugin
-from modules.library import get_continue_watching
+from modules.kodi_utils import build_url, run_plugin
 
 
 class CatalogType(IntEnum):
@@ -39,8 +37,12 @@ class Catalog(BaseIndexer[StremioMeta]):
         data: list[StremioMeta] | None = None
         catalog: StremioCatalog | None = None
 
+        from apis.StremioAPI import stremio_api
+
         match self.catalog_type:
             case CatalogType.CONTINUE:
+                from modules.library import get_continue_watching
+
                 data = get_continue_watching()
                 name = "Continue watching"
             case CatalogType.HOME:
@@ -77,7 +79,7 @@ class Catalog(BaseIndexer[StremioMeta]):
             name = catalog.title
 
         addDirectoryItems(handle, self._worker(data))
-        setContent(handle, "movies")
+        setContent(handle, "tvshows")
         setPluginCategory(handle, name)
         endOfDirectory(handle, cacheToDisc=not self.external)
 
@@ -85,35 +87,8 @@ class Catalog(BaseIndexer[StremioMeta]):
         list_item = item.build_list_item()
         context_menu = []
 
-        next_episode: int | None = None
-        if item.videos:
-            episodes = [v for v in item.videos if v.season != 0]
-            bitfield = item.library.state.watched_bitfield
-            watched_episodes = [v for v in episodes if bitfield.get_video(v.id)]
-            list_item.setProperties(
-                {
-                    "totalepisodes": len(episodes),
-                    "totalseasons": len({v.season for v in episodes}),
-                    "watchedepisodes": len(watched_episodes),
-                    "unwatchedepisodes": len(episodes) - len(watched_episodes),
-                    "watchedprogress": (
-                        str((len(watched_episodes) / len(episodes)) * 100)
-                        if watched_episodes != episodes
-                        else 0
-                    ),
-                }
-            )
         if self.catalog_type == CatalogType.CONTINUE:
-            if item.videos:
-                next_episode = next(
-                    (
-                        idx
-                        for idx, e in enumerate(item.videos)
-                        if e.id == item.library.state.video_id
-                    ),
-                    None,
-                )
-            if next_episode or item.library.state.video_id == item.id:
+            if item.library.state.video_id:
                 tag: InfoTagVideo = list_item.getVideoInfoTag()
                 tag.setResumePoint(
                     item.library.state.timeOffset, item.library.state.duration
@@ -123,7 +98,8 @@ class Catalog(BaseIndexer[StremioMeta]):
                         "Dismiss",
                         run_plugin(
                             {
-                                "mode": "library.clear_progress",
+                                "mode": "library",
+                                "func": "clear_progress",
                                 "content_id": item.id,
                                 "content_type": item.type,
                             },
@@ -131,22 +107,14 @@ class Catalog(BaseIndexer[StremioMeta]):
                         ),
                     ),
                 )
-
             else:
-                next_episode = next(
-                    (
-                        idx
-                        for idx, e in enumerate(item.videos)
-                        if e.season and not e.watched
-                    ),
-                    None,
-                )
                 context_menu.append(
                     (
                         "Dismiss",
                         run_plugin(
                             {
-                                "mode": "library.dismiss_notification",
+                                "mode": "library",
+                                "func": "dismiss_notification",
                                 "content_id": item.id,
                                 "content_type": item.type,
                             },
@@ -158,21 +126,32 @@ class Catalog(BaseIndexer[StremioMeta]):
         url_params = (
             build_url(
                 {
-                    "mode": "playback.media",
+                    "mode": "playback",
+                    "func": "media",
                     "media_type": "movie",
                     "id": item.id,
                 }
             )
-            if not item.videos
+            if item.type == "movie"
             else build_url(
-                {"mode": "build_seasons", "id": item.id}
-                if not self.catalog_type == CatalogType.CONTINUE or next_episode is None
+                {"mode": "build", "func": "seasons", "id": item.id}
+                if not self.catalog_type == CatalogType.CONTINUE
+                or not item.library.state.video_id
                 else {
-                    "mode": "playback.media",
+                    "mode": "playback",
+                    "func": "media",
                     "media_type": "series",
                     "id": item.id,
-                    "episode": next_episode,
+                    "episode_id": item.library.state.video_id,
                 }
             )
         )
-        return url_params, list_item, bool(item.videos)
+        return (
+            url_params,
+            list_item,
+            not (
+                self.catalog_type == CatalogType.CONTINUE
+                and item.library.state.video_id
+            )
+            and item.type != "movie",
+        )

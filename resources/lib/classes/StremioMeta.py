@@ -86,6 +86,8 @@ class Video:
         list_item = self.parent.build_list_item()
 
         list_item.setLabel(self.name)
+        if self.thumbnail:
+            list_item.setArt({"fanart": self.thumbnail})
 
         info_tag: xbmc.InfoTagVideo = list_item.getVideoInfoTag()
         info_tag.setTitle(self.name)
@@ -110,7 +112,8 @@ class Video:
                 f"Mark as {'Unwatched' if self.watched else 'Watched'}",
                 run_plugin(
                     {
-                        "mode": "library.watched_status",
+                        "mode": "library",
+                        "func": "watched_status",
                         "content_id": self.parent.id,
                         "content_type": self.parent.type,
                         "video_id": self.id,
@@ -202,7 +205,10 @@ class StremioMeta:
     @property
     def watched(self) -> bool:
         if self.type == "series":
-            return not any(not i.watched for i in self.videos if i.season != 0)
+            return (
+                not any(not i.watched for i in self.videos if i.season != 0)
+                and self.videos
+            )
         else:
             return self.library.state.timesWatched > 0
 
@@ -257,9 +263,8 @@ class StremioMeta:
 
         from apis.StremioAPI import stremio_api
 
-        stremio_api.get_data_by_meta(self)
+        self.library = stremio_api.get_data_by_meta(self)
 
-        self.library = stremio_api.library[self.id]
         if self.videos:
             self.videos.sort(
                 key=lambda e: (
@@ -268,6 +273,8 @@ class StremioMeta:
                     e.released,
                 )
             )
+
+            self.library.state.create_bitfield([v.id for v in self.videos])
 
         for video in self.videos:
             video.parent = self
@@ -290,6 +297,23 @@ class StremioMeta:
                 "tvshow.clearlogo": self.logo,
             }
         )
+
+        if self.videos and (bitfield := self.library.state.watched_bitfield):
+            episodes = [v for v in self.videos if v.season != 0]
+            watched_episodes = [v for v in episodes if bitfield.get_video(v.id)]
+            list_item.setProperties(
+                {
+                    "totalepisodes": len(episodes),
+                    "totalseasons": len({v.season for v in episodes}),
+                    "watchedepisodes": len(watched_episodes),
+                    "unwatchedepisodes": len(episodes) - len(watched_episodes),
+                    "watchedprogress": (
+                        str((len(watched_episodes) / len(episodes)) * 100)
+                        if watched_episodes != episodes
+                        else 0
+                    ),
+                }
+            )
         info_tag: xbmc.InfoTagVideo = list_item.getVideoInfoTag()
         info_tag.setMediaType(self.kodi_type)
         info_tag.setTitle(self.name)
@@ -330,7 +354,8 @@ class StremioMeta:
                 f"{'Remove from' if is_in_library else 'Add to'} Library",
                 run_plugin(
                     {
-                        "mode": "library.status",
+                        "mode": "library",
+                        "func": "status",
                         "content_id": self.id,
                         "content_type": self.type,
                         "status": not is_in_library,
@@ -384,5 +409,4 @@ def object_hook(
         k in d for k in ("trakt", "stremio", "stremio_lib", "moviedb")
     ):
         return Popularities(**filter_kwargs(Popularities, d))
-    log(d)
     return

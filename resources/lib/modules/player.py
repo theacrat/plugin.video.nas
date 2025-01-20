@@ -32,15 +32,14 @@ class NASPlayerState:
 
 
 def run_error():
-    notification("Playback Failed", 3500)
-    return False
+    notification("Playback failed")
 
 
 def kill_dialog():
     close_all_dialog()
 
 
-def make_listing(url, resume_point, meta: StremioMeta, episode: [int | None]):
+def make_listing(url, resume_point, meta: StremioMeta, episode: int | None):
     list_item: ListItem
     list_item = (
         meta.videos[episode].build_list_item() if episode else meta.build_list_item()
@@ -68,7 +67,7 @@ class NASPlayer(xbmc.Player):
         url,
         resume_point,
         meta: StremioMeta,
-        episode: [int | None],
+        episode: int | None,
     ):
         hide_busy_dialog()
         try:
@@ -112,13 +111,14 @@ class NASPlayer(xbmc.Player):
         self.state.last_time = curr_time
 
         update_args = {
-            "mode": "library.player_update",
+            "mode": "library",
+            "func": "player_update",
             "content_id": self.state.stremio_id,
             "video_id": self.state.stremio_video_id,
             "content_type": self.state.stremio_type,
             "curr_time": round(curr_time * 1000),
             "total_time": round(self.state.total_time * 1000),
-            "playing": not self.state.paused and not stopped and not finished,
+            "playing": not self.state.paused and not self.state.stopped,
             "start_stop": start_stop,
         }
 
@@ -128,6 +128,7 @@ class NASPlayer(xbmc.Player):
         ).start()
 
     def onAVStarted(self):
+        hide_busy_dialog()
         item: ListItem = self.getPlayingItem()
         video_tag: InfoTagVideo = item.getVideoInfoTag()
         stremio_id = video_tag.getUniqueID("stremio")

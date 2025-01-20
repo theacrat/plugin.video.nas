@@ -35,7 +35,6 @@ class Seasons(BaseIndexer[int]):
         endOfDirectory(handle, cacheToDisc=not self.external)
 
     def _build_content(self, item, position):
-        # cm = [] TODO context menu
         list_item = NASListItem()
 
         list_item.setLabel(f"Season {item}" if item != 0 else "Specials")
@@ -47,7 +46,8 @@ class Seasons(BaseIndexer[int]):
         )
         url_params = build_url(
             {
-                "mode": "build_episodes",
+                "mode": "build",
+                "func": "episodes",
                 "id": self.id,
                 "season": item,
             }

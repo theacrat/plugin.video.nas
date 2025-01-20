@@ -21,7 +21,7 @@ class Discover(BaseIndexer[StremioCatalog | str]):
         data: [StremioCatalog | str]
         title: str
         catalogs = stremio_api.get_discover_catalogs_by_type(self.discover_type)
-        if not self.idx:
+        if self.idx is None:
             data = catalogs
             title = self.discover_type
         else:
@@ -42,7 +42,8 @@ class Discover(BaseIndexer[StremioCatalog | str]):
             list_item.setLabel(item.title)
             url_params = build_url(
                 {
-                    "mode": "build_discover",
+                    "mode": "build",
+                    "func": "discover",
                     "discover_type": self.discover_type,
                     "idx": idx,
                 }
@@ -51,7 +52,8 @@ class Discover(BaseIndexer[StremioCatalog | str]):
             list_item.setLabel((item or "Default").capitalize())
             url_params = build_url(
                 {
-                    "mode": "build_catalog",
+                    "mode": "build",
+                    "func": "catalog",
                     "catalog_type": CatalogType.DISCOVER,
                     "media_type": self.discover_type,
                     "idx": self.idx,

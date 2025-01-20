@@ -155,7 +155,7 @@ def dataclass_to_dict(obj) -> dict:
     def _convert(_obj):
         if is_dataclass(_obj):
             repr_fields = {
-                f.name: getattr(_obj, f.name) for f in fields(_obj) if f.repr
+                f.name: getattr(_obj, f.name) for f in fields(_obj) if f.compare
             }
             return {k: _convert(v) for k, v in repr_fields.items()}
         elif isinstance(_obj, (list, tuple)):

@@ -65,7 +65,7 @@ class Navigator:
 
         for count, item in enumerate(root_list):
             name: str = item.__name__
-            add({"mode": f"navigator.{name}"}, name.title(), name, False)
+            add({"mode": "navigator", "func": name}, name.title(), name, False)
         self.end_directory()
 
     def home(self):
@@ -73,13 +73,18 @@ class Navigator:
 
         if len(get_continue_watching()):
             add(
-                {"mode": "build_catalog", "catalog_type": CatalogType.CONTINUE.value},
+                {
+                    "mode": "build",
+                    "func": "catalog",
+                    "catalog_type": CatalogType.CONTINUE.value,
+                },
                 "Continue watching",
             )
         for i, c in enumerate(stremio_api.get_home_catalogs()):
             add(
                 {
-                    "mode": "build_catalog",
+                    "mode": "build",
+                    "func": "catalog",
                     "catalog_type": CatalogType.HOME.value,
                     "idx": i,
                 },
@@ -89,7 +94,7 @@ class Navigator:
 
     def discover(self):
         for t in stremio_api.get_discover_types():
-            add({"mode": "build_discover", "discover_type": t}, t.title())
+            add({"mode": "build", "func": "discover", "discover_type": t}, t.title())
         self.end_directory()
 
     def library(self):
@@ -98,7 +103,8 @@ class Navigator:
         for i, t in enumerate(stremio_api.get_library_types()):
             add(
                 {
-                    "mode": "build_catalog",
+                    "mode": "build",
+                    "func": "catalog",
                     "catalog_type": CatalogType.LIBRARY,
                     "library_filter": t if i else None,
                 },
@@ -118,7 +124,8 @@ class Navigator:
         for i, c in enumerate(stremio_api.get_search_catalogs()):
             add(
                 {
-                    "mode": "build_catalog",
+                    "mode": "build",
+                    "func": "catalog",
                     "catalog_type": CatalogType.SEARCH.value,
                     "idx": i,
                     "search": query,
@@ -129,11 +136,6 @@ class Navigator:
 
     def settings(self):
         self.end_directory()
-
-    def exit_media_menu(self):
-        params = get_property("nas.exit_params")
-        if params:
-            return container_refresh_input(params)
 
     def end_directory(self, succeeded=True):
         handle = int(sys.argv[1])

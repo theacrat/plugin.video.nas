@@ -1,3 +1,5 @@
+import datetime
+import json
 from dataclasses import dataclass, field
 from functools import reduce
 from itertools import chain
@@ -7,6 +9,7 @@ from typing import Callable, Any
 import xbmc
 from xbmcgui import Dialog
 
+from addon import nas_addon
 from classes.StremioAddon import Resource, StremioAddon, StremioCatalog
 from classes.StremioLibrary import StremioLibrary
 from classes.StremioMeta import StremioMeta
@@ -20,6 +23,7 @@ from modules.kodi_utils import (
 )
 
 API_ENDPOINT = "https://api.strem.io/api/"
+DATASTORE_FILE = nas_addon.get_file_path("datastore.json")
 timeout = 20
 
 import requests.adapters
@@ -33,11 +37,12 @@ class StremioAPI:
     metadata: dict[str, StremioMeta] = field(init=False, default_factory=dict)
     data_store: dict[str, StremioLibrary] = field(init=False, default_factory=dict)
     session: requests.Session = field(init=False, default_factory=requests.Session)
+    addons_updated: datetime = field(
+        init=False, default_factory=lambda: datetime.datetime.now()
+    )
 
     def __post_init__(self):
         self.token = get_setting("stremio.token")
-        self.get_addons()
-        self.get_data_store()
 
         adapter = requests.adapters.HTTPAdapter()
         self.session.mount("https://", adapter)
@@ -46,6 +51,8 @@ class StremioAPI:
                 "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             }
         )
+        self.get_addons()
+        self.get_data_store()
 
     @property
     def library(self) -> dict[str, StremioLibrary]:
@@ -87,10 +94,11 @@ class StremioAPI:
             return default_return
 
     def _filter_addons(
-        self, addon_type: str, media_type: str, id: str = None
+        self, addon_type: str, media_type: str, id: str = None, refresh=False
     ) -> list[StremioAddon]:
         matching_addons = []
-        for a in self.get_addons():
+        addons = self.get_addons(refresh)
+        for a in addons:
             m = a.manifest
             if (
                 addon_type in m.resources
@@ -136,8 +144,17 @@ class StremioAPI:
         set_setting("stremio.user", "")
         self.token = get_setting("stremio.token")
 
+        import os
+
+        os.remove(DATASTORE_FILE)
+
     def get_addons(self, refresh: bool = False) -> list[StremioAddon]:
-        if not self.addons or refresh:
+        if (
+            not self.addons
+            or refresh
+            or (datetime.datetime.now() - self.addons_updated).total_seconds() > 300
+        ):
+            self.addons_updated = datetime.datetime.now()
             response = self._post("addonCollectionGet", {"update": True})
             self.addons = StremioAddon.from_list(response.get("addons", []))
         return self.addons
@@ -148,44 +165,71 @@ class StremioAPI:
             self.catalogs = list(chain(*[a.manifest.catalogs for a in addons]))
         return self.catalogs
 
+    def write_data_store(self):
+
+        with open(DATASTORE_FILE, "w") as f:
+            json.dump([dataclass_to_dict(i) for i in self.data_store.values()], f)
+
+    def load_data_store(self):
+        try:
+            with open(DATASTORE_FILE) as f:
+                return json.load(f)
+        except Exception as e:
+            log(str(e), xbmc.LOGERROR)
+            return None
+
     def get_data_store(self, refresh: bool = False) -> dict[str, StremioLibrary]:
         if not self.data_store or refresh:
-            response = self._post(
-                "datastoreGet", {"all": True, "collection": "libraryItem"}
-            )
+            cached_store = self.load_data_store()
+            response = cached_store
+            if not response or refresh:
+                response = self._post(
+                    "datastoreGet", {"all": True, "collection": "libraryItem"}
+                )
             self.data_store = {i.id: i for i in StremioLibrary.from_list(response)}
+            if cached_store and not refresh:
+                self.update_data_store()
+            self.write_data_store()
         return self.data_store
 
-    def get_data_by_metas(
-        self, metas: list[StremioMeta], refresh: bool = False
-    ) -> list[StremioLibrary]:
+    def update_data_store(self):
+        data_store = self.data_store
+        meta = self._post("datastoreMeta", {"collection": "libraryItem"})
+        outdated_ids = []
+        for i in meta:
+            if i[0] not in data_store or data_store[
+                i[0]
+            ].modified_time < datetime.datetime.fromtimestamp(
+                i[1] / 1000, datetime.timezone.utc
+            ):
+                outdated_ids.append(i[0])
+
+        if not len(outdated_ids):
+            return
+
+        self.get_data_by_ids(outdated_ids)
+        self.write_data_store()
+
+    def get_data_by_ids(self, ids: list[str]):
+        response = self._post(
+            "datastoreGet",
+            {"ids": ids, "collection": "libraryItem"},
+        )
+        log(response)
+        for i in StremioLibrary.from_list(response):
+            self.data_store[i.id] = i
+
+    def get_data_by_meta(self, meta: StremioMeta) -> StremioLibrary | None:
         data_store = self.get_data_store()
-        uncached_ids = [i.id for i in metas if i.id not in data_store or refresh]
-        if uncached_ids:
-            response = self._post(
-                "datastoreGet", {"ids": uncached_ids, "collection": "libraryItem"}
-            )
-            for i in StremioLibrary.from_list(response):
-                self.data_store[i.id] = i
-        for i in [i for i in metas if i.id not in data_store]:
-            self.data_store[i.id] = StremioLibrary.from_dict(
-                {"_id": i.id, **dataclass_to_dict(i)}
-            )
-
-        library_items = [data_store[i.id] for i in metas]
-        for idx, i in enumerate(library_items):
-            meta = metas[idx]
-            if not i.state.watched_bitfield and meta.videos:
-                i.state.create_bitfield([v.id for v in meta.videos])
-        return library_items
-
-    def get_data_by_meta(
-        self, meta: StremioMeta, refresh: bool = False
-    ) -> StremioLibrary:
-        return self.get_data_by_metas([meta], refresh)[0]
+        return (
+            data_store[meta.id]
+            if meta.id in data_store
+            else StremioLibrary.from_dict({"_id": meta.id, **dataclass_to_dict(meta)})
+        )
 
     def set_data(self, data: StremioLibrary):
         self.data_store[data.id] = data
+        self.write_data_store()
         post_data = {"collection": "libraryItem", "changes": [dataclass_to_dict(data)]}
         self._post("datastorePut", post_data)
 
@@ -199,13 +243,8 @@ class StremioAPI:
         return types
 
     def get_library(self, type_filter: str | None = None) -> list[StremioMeta]:
-        responses = []
-
-        def _get_meta(item: StremioLibrary, idx):
-            responses[idx] = self.get_metadata_by_id(item.id, item.type)
-
-        entries = [
-            i
+        responses = [
+            StremioMeta.from_dict({"id": i.id, **dataclass_to_dict(i)})
             for i in sorted(
                 [v for k, v in self.get_data_store().items() if not v.removed],
                 key=lambda e: e.state.lastWatched,
@@ -213,14 +252,6 @@ class StremioAPI:
             )
             if type_filter is None or i.type == type_filter
         ]
-        responses.extend(None for _ in entries)
-
-        threads = [
-            Thread(target=_get_meta, args=(item, idx))
-            for idx, item in enumerate(entries)
-        ]
-        [t.start() for t in threads]
-        [t.join() for t in threads]
         return responses
 
     def get_metadata_by_libraries(
@@ -238,7 +269,7 @@ class StremioAPI:
         ]
         [t.start() for t in threads]
         [t.join() for t in threads]
-        return responses
+        return [r for r in responses if r]
 
     def get_metadata_by_id(
         self, id: str, media_type: str, refresh=False
@@ -268,16 +299,16 @@ class StremioAPI:
         self,
         id: str,
         media_type: str,
-        results: list[dict, None],
-        callback: Callable[[list[StremioStream], int], Any],
+        callback: Callable[[list[StremioStream], int, int], Any],
     ) -> list[Thread]:
+
+        stream_addons = self._filter_addons("stream", media_type, id, True)
+
         def _get_stream(item: StremioAddon, idx: int):
             response = self._get(f"{item.base_url}/stream/{media_type}/{id}.json")
             streams = StremioStream.from_list(response.get("streams", []))
-            callback(streams, idx)
+            callback(streams, idx, len(stream_addons))
 
-        stream_addons = self._filter_addons("stream", media_type, id)
-        results.extend(None for _ in stream_addons)
         threads = [
             Thread(target=_get_stream, args=(item, idx))
             for idx, item in enumerate(stream_addons)
@@ -328,8 +359,8 @@ class StremioAPI:
         types.sort(key=lambda c: (0 if c == "movie" else 1 if c == "series" else 2, c))
         return types
 
-    def get_discover_catalogs_by_type(self, type: str) -> list[StremioCatalog]:
-        return [c for c in self.get_discover_catalogs() if c.type == type]
+    def get_discover_catalogs_by_type(self, catalog_type: str) -> list[StremioCatalog]:
+        return [c for c in self.get_discover_catalogs() if c.type == catalog_type]
 
     def get_search_catalogs(self) -> list[StremioCatalog]:
         return [
@@ -352,6 +383,35 @@ class StremioAPI:
             and not any(e != "lastVideosIds" for e in c.extraRequired)
         ]
 
+    def get_notifications(self, library_items: list[StremioLibrary]):
+        responses = []
+
+        def _get_notification_catalog(catalog: StremioCatalog, idx: int):
+            ids = ",".join(
+                l.id
+                for l in library_items
+                if any(
+                    l.id.startswith(prefix)
+                    for prefix in catalog.addon.manifest.idPrefixes
+                )
+            )
+            responses[idx] = self.get_catalog(
+                catalog,
+                notification_ids=f"lastVideosIds={ids}",
+            )
+
+        catalogs = self.get_notification_catalogs()
+
+        responses.extend(None for _ in catalogs)
+
+        threads = [
+            Thread(target=_get_notification_catalog, args=(item, idx))
+            for idx, item in enumerate(catalogs)
+        ]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        return list(chain(*responses))
+
     def get_catalog(
         self,
         catalog: StremioCatalog,
@@ -361,9 +421,7 @@ class StremioAPI:
     ) -> list[StremioMeta | None]:
         responses: list[StremioMeta | None] = []
 
-        def _get_full_meta(item, idx):
-            responses[idx] = self.get_metadata_by_id(item.get("id"), item.get("type"))
-
+        self.update_data_store()
         query = "/".join(
             filter(
                 None,
@@ -380,15 +438,11 @@ class StremioAPI:
         )
 
         response = self._get(f"{query}.json").get("metas", [])
-
         responses.extend(None for _ in response)
 
-        threads = [
-            Thread(target=_get_full_meta, args=(item, idx))
-            for idx, item in enumerate(response)
-        ]
-        [t.start() for t in threads]
-        [t.join() for t in threads]
+        for idx, r in enumerate(response):
+            responses[idx] = StremioMeta.from_dict(r)
+
         return responses
 
     def send_events(self, events):

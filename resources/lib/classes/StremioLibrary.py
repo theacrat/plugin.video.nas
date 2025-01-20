@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 import json
+from functools import cached_property
+
 import math
 import zlib
 from dataclasses import dataclass, field
@@ -93,7 +95,7 @@ class WatchedBitfield:
     ) -> WatchedBitfield:
         components = serialized.split(":")
         if len(components) < 3:
-            raise ValueError("invalid components length")
+            raise ValueError("Invalid components length")
 
         serialized_buf = components.pop()
         anchor_length = int(components.pop())
@@ -172,6 +174,10 @@ class WatchState:
         default=None,
     )
 
+    @cached_property
+    def last_watched(self):
+        return datetime.fromisoformat(timestamp_zone_format_switcher(self.lastWatched))
+
     def create_bitfield(self, video_ids: list[str]):
         self.watched_bitfield = (
             WatchedBitfield.construct_and_resize(self.watched, video_ids)
@@ -204,9 +210,17 @@ class StremioLibrary:
     def from_list(cls, data: list[dict[str, Any]]) -> list[StremioLibrary]:
         return [StremioLibrary.from_dict(a) for a in data]
 
-    @property
+    @cached_property
     def id(self):
         return self._id
+
+    @cached_property
+    def created_time(self):
+        return datetime.fromisoformat(timestamp_zone_format_switcher(self._ctime))
+
+    @cached_property
+    def modified_time(self):
+        return datetime.fromisoformat(timestamp_zone_format_switcher(self._mtime))
 
     def update_progress(
         self,
@@ -265,7 +279,8 @@ class StremioLibrary:
                 state.timeOffset = 1
                 run_plugin(
                     {
-                        "mode": "playback.media",
+                        "mode": "playback",
+                        "func": "media",
                         "media_type": self.type,
                         "id": self.id,
                         "episode": episode.next_episode.idx,

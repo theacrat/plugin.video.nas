@@ -20,78 +20,89 @@ def build_class(cls: type[T], data: dict[str, Any]) -> T:
 
 
 def routing(sys):
-    params = dict(parse_qsl(sys.argv[2][1:], keep_blank_values=True))
-    parsed_params = {k: parse_string(v) for k, v in params.items()}
+    params = {
+        k: parse_string(v)
+        for k, v in dict(parse_qsl(sys.argv[2][1:], keep_blank_values=True)).items()
+    }
 
-    mode = params.get("mode", "navigator.main")
-    if parsed_params.get("mode", None):
-        del parsed_params["mode"]
-    if "navigator." in mode:
-        navigator = build_class(Navigator, parsed_params)
-        match mode:
-            case "navigator.main":
-                return navigator.main()
-            case "navigator.home":
-                return navigator.home()
-            case "navigator.discover":
-                return navigator.discover()
-            case "navigator.library":
-                return navigator.library()
-            case "navigator.search":
-                return navigator.search()
-            case "navigator.settings":
-                return navigator.settings()
-    if "playback." in mode:
-        if mode == "playback.media":
-            from modules.sources import Sources
+    mode = params.get("mode", "navigator")
+    func = params.get("func", "main")
 
-            return build_class(Sources, parsed_params).play()
-    if "choice" in mode:
-        return exec("dialogs.%s(params)" % mode)
-    if "build" in mode:
-        parsed_params["refreshed"] = parsed_params.get("refreshed", False)
+    if params.get("mode", None):
+        del params["mode"]
+    if params.get("func", None):
+        del params["func"]
 
-        selected_class: type[BaseIndexer | None] = None
-        match mode:
-            case "build_catalog":
-                from indexers.catalog import Catalog
+    match mode:
+        case "navigator":
+            navigator = build_class(Navigator, params)
 
-                selected_class = Catalog
-            case "build_discover":
-                from indexers.discover import Discover
+            match func:
+                case "main":
+                    return navigator.main()
+                case "home":
+                    return navigator.home()
+                case "discover":
+                    return navigator.discover()
+                case "library":
+                    return navigator.library()
+                case "search":
+                    return navigator.search()
+                case "settings":
+                    return navigator.settings()
 
-                selected_class = Discover
-            case "build_seasons":
-                from indexers.seasons import Seasons
+        case "playback":
+            match func:
+                case "media":
+                    from modules.sources import Sources
 
-                selected_class = Seasons
-            case "build_episodes":
-                from indexers.episodes import Episodes
+                    return build_class(Sources, params).play()
 
-                selected_class = Episodes
+        case "build":
+            if "refreshed" not in params:
+                params["refreshed"] = False
 
-        return build_class(selected_class, parsed_params) if selected_class else None
+            selected_class: type[BaseIndexer] | None = None
+            match func:
+                case "catalog":
+                    from indexers.catalog import Catalog
 
-    if "library." in mode:
-        from modules import library
+                    selected_class = Catalog
+                case "discover":
+                    from indexers.discover import Discover
 
-        match mode:
-            case "library.player_update":
-                return library.player_update(**parsed_params)
-            case "library.status":
-                return library.set_library_status(**parsed_params)
-            case "library.clear_progress":
-                return library.clear_progress(**parsed_params)
-            case "library.dismiss_notification":
-                return library.dismiss_notification(**parsed_params)
-            case "library.watched_status":
-                return library.mark_watched(**parsed_params)
+                    selected_class = Discover
+                case "seasons":
+                    from indexers.seasons import Seasons
 
-    if "stremio" in mode:
-        from apis.StremioAPI import stremio_api
+                    selected_class = Seasons
+                case "episodes":
+                    from indexers.episodes import Episodes
 
-        match mode:
-            case "stremio.authenticate":
-                return stremio_api.login()
-            case "stremio.revoke_authentication":
-                return stremio_api.logout()
+                    selected_class = Episodes
+
+            return build_class(selected_class, params) if selected_class else None
+
+        case "library":
+            from modules import library
+
+            match func:
+                case "player_update":
+                    return library.player_update(**params)
+                case "status":
+                    return library.set_library_status(**params)
+                case "clear_progress":
+                    return library.clear_progress(**params)
+                case "dismiss_notification":
+                    return library.dismiss_notification(**params)
+                case "watched_status":
+                    return library.mark_watched(**params)
+
+        case "stremio":
+            from apis.StremioAPI import stremio_api
+
+            match func:
+                case "authenticate":
+                    return stremio_api.login()
+                case "revoke_authentication":
+                    return stremio_api.logout()

@@ -20,8 +20,10 @@ class SourcesResults(BaseDialog[StremioStream]):
     pre_scrape: bool = field(default=None)
     meta: StremioMeta = field(default=None)
     episode: int = field(default=None)
-    results: list[list[StremioStream]] = field(default_factory=list)
-    result_listeners: list[Callable[[int], None]] = field(default_factory=list)
+    results: list[list[StremioStream] | None] | None = field(default=None)
+    result_listeners: list[
+        Callable[[list[list[StremioStream] | None] | None, int], None]
+    ] = field(default_factory=list)
     window_id: int = field(init=False, default=2002)
     item_list: list[list[ListItem]] = field(init=False, default_factory=list)
     xml_filename = "sources_results"
@@ -38,7 +40,15 @@ class SourcesResults(BaseDialog[StremioStream]):
             )
         self.item_list[position] = self.make_items(position)
 
-    def update_items(self, position=None):
+    def update_items(self, results=None, position=None):
+        if results:
+            self.results = results
+        if self.results is None:
+            self.setProperty(
+                "remaining_sources",
+                "Loading stream addons...",
+            )
+            return
         if position is None:
             for idx, r in enumerate(self.results):
                 if r is None or self.item_list:
@@ -51,7 +61,7 @@ class SourcesResults(BaseDialog[StremioStream]):
         selected_item = self.get_list_item(self.window_id)
         self.reset_window(self.window_id)
         chain_list = list(chain(*self.item_list))
-        if not len(chain_list) and not None in self.results:
+        if not len(chain_list) and not None in self.results and len(self.results):
             notification("No results found")
             self.close()
             return

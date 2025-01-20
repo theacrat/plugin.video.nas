@@ -30,19 +30,24 @@ class Sources:
     id: str
     media_type: str
     episode: int | None = None
+    episode_id: str | None = None
     play_type: PlayTypes | None = PlayTypes.DEFAULT
     pre_scrape: bool | None = True
     background: bool | None = False
     meta: StremioMeta = field(init=False)
-    results: list[list[StremioStream]] = field(init=False, default_factory=list)
-    result_listeners: list[Callable[[int], None]] = field(
-        init=False, default_factory=list
-    )
+    results: list[list[StremioStream] | None] | None = field(init=False, default=None)
+    result_listeners: list[
+        Callable[[list[list[StremioStream] | None] | None, int], None]
+    ] = field(init=False, default_factory=list)
     progress_thread: Thread = field(init=False, default=None)
     resolve_dialog_made: bool = field(init=False, default=False)
 
     def __post_init__(self):
         self.meta = stremio_api.get_metadata_by_id(self.id, self.media_type)
+        if self.episode_id:
+            self.episode = next(
+                idx for idx, i in enumerate(self.meta.videos) if i.id == self.episode_id
+            )
 
     def play(self):
         hide_busy_dialog()
@@ -59,7 +64,6 @@ class Sources:
                     else self.meta.behaviorHints.defaultVideoId or self.meta.id
                 ),
                 "media_type": self.media_type,
-                "results": self.results,
                 "callback": self.process_results,
             },
         )
@@ -68,10 +72,12 @@ class Sources:
 
         return self.display_results()
 
-    def process_results(self, results: list[StremioStream], position):
+    def process_results(self, results: list[StremioStream], position, addon_count: int):
+        if not self.results:
+            self.results = [None for _ in range(addon_count)]
         self.results[position] = [r for r in results if r.url]
         for l in self.result_listeners:
-            l(position)
+            l(self.results, position)
 
     def display_results(self):
         results_window = SourcesResults(

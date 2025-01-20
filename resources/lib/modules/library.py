@@ -2,8 +2,8 @@ import datetime
 
 from apis.StremioAPI import stremio_api
 from classes.StremioLibrary import StremioLibrary
-from classes.StremioMeta import Video
-from modules.kodi_utils import timestamp_zone_format_switcher, log, run_plugin
+from classes.StremioMeta import Video, StremioMeta
+from modules.kodi_utils import timestamp_zone_format_switcher, dataclass_to_dict
 
 
 def player_update(
@@ -44,7 +44,7 @@ def player_update(
 
 
 def get_continue_watching():
-    def _checkDateTime(last_watched, released):
+    def _check_date_time(last_watched, released):
         if not released:
             return False
         if not last_watched:
@@ -77,11 +77,17 @@ def get_continue_watching():
         and not k in results
     }
 
-    all_results: list[StremioLibrary] = [*results.values(), *notif_results.values()]
+    all_results: list[StremioLibrary] = [
+        *results.values(),
+        *stremio_api.get_notifications(notif_results.values()),
+    ]
 
     metas = sorted(
-        stremio_api.get_metadata_by_libraries(all_results),
-        key=lambda e: e.library._mtime,
+        [
+            StremioMeta.from_dict({"id": e.id, **dataclass_to_dict(e)})
+            for e in all_results
+        ],
+        key=lambda e: e.library.modified_time,
         reverse=True,
     )
 
@@ -92,7 +98,7 @@ def get_continue_watching():
         and not (
             i.id in notif_results
             and not any(
-                _checkDateTime(i.library.state.lastWatched, v.released)
+                _check_date_time(i.library.state.lastWatched, v.released)
                 for v in i.videos
                 if v.season
             )
