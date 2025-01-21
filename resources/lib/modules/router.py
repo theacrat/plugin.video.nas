@@ -58,7 +58,7 @@ def routing(sys):
 
                     return build_class(Sources, params).play()
 
-        case "build":
+        case "indexer":
             if "refreshed" not in params:
                 params["refreshed"] = False
 
@@ -80,6 +80,10 @@ def routing(sys):
                     from indexers.episodes import Episodes
 
                     selected_class = Episodes
+                case "relations":
+                    from indexers.relations import Relations
+
+                    selected_class = Relations
 
             return build_class(selected_class, params) if selected_class else None
 

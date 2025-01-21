@@ -42,7 +42,7 @@ class Discover(BaseIndexer[StremioCatalog | str]):
             list_item.setLabel(item.title)
             url_params = build_url(
                 {
-                    "mode": "build",
+                    "mode": "indexer",
                     "func": "discover",
                     "discover_type": self.discover_type,
                     "idx": idx,
@@ -52,7 +52,7 @@ class Discover(BaseIndexer[StremioCatalog | str]):
             list_item.setLabel((item or "Default").capitalize())
             url_params = build_url(
                 {
-                    "mode": "build",
+                    "mode": "indexer",
                     "func": "catalog",
                     "catalog_type": CatalogType.DISCOVER,
                     "media_type": self.discover_type,

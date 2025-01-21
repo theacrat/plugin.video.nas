@@ -4,12 +4,12 @@ import json
 import re
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Any, Optional, Union, get_type_hints
+from typing import Any, get_type_hints
 
 import xbmc
 
 from indexers.base_indexer import NASListItem
-from modules.kodi_utils import log, build_url, run_plugin
+from modules.kodi_utils import log, run_plugin, update_container
 
 
 @dataclass
@@ -202,6 +202,10 @@ class StremioMeta:
     def seasons(self) -> list[int]:
         return sorted(list({v.season for v in self.videos}), key=lambda k: (k == 0, k))
 
+    @cached_property
+    def relations(self) -> list[Link]:
+        return [l for l in self.links if l.url.startswith("stremio:///detail")]
+
     @property
     def watched(self) -> bool:
         if self.type == "series":
@@ -221,6 +225,18 @@ class StremioMeta:
                 return "movie"
             case _:
                 return "video"
+
+    @cached_property
+    def kodi_status(self) -> str:
+        match self.status:
+            case "Ended":
+                return "Ended"
+            case "Cancelled":
+                return "Canceled"
+            case "Continuing":
+                return "Returning"
+            case _:
+                return ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> StremioMeta:
@@ -364,13 +380,30 @@ class StremioMeta:
                 ),
             )
         )
+
+        cm_items.append(
+            (
+                "View relations",
+                update_container(
+                    {
+                        "mode": "indexer",
+                        "func": "relations",
+                        "content_id": self.id,
+                        "content_type": self.type,
+                    },
+                    build_only=True,
+                ),
+            )
+        )
+
         list_item.addContextMenuItems(cm_items)
 
         progress_state = self.library.state
         if progress_state.video_id == self.id:
             info_tag.setResumePoint(progress_state.timeOffset, progress_state.duration)
-        # TODO is still airing
-        # info_tag.setTvShowStatus(meta_get("status"))
+
+        if self.type == "series":
+            info_tag.setTvShowStatus(self.kodi_status)
 
         return list_item
 

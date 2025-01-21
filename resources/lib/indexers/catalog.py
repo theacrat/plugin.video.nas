@@ -134,7 +134,7 @@ class Catalog(BaseIndexer[StremioMeta]):
             )
             if item.type == "movie"
             else build_url(
-                {"mode": "build", "func": "seasons", "id": item.id}
+                {"mode": "indexer", "func": "seasons", "id": item.id}
                 if not self.catalog_type == CatalogType.CONTINUE
                 or not item.library.state.video_id
                 else {

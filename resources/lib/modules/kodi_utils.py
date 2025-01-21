@@ -130,6 +130,10 @@ def close_all_dialog():
     execute_built_in("Dialog.Close(all,true)")
 
 
+def update_container(params, block=False, build_only=False):
+    return execute_built_in("Container.Update({0})", params, block, build_only)
+
+
 def run_plugin(params, block=False, build_only=False):
     return execute_built_in("RunPlugin({0})", params, block, build_only)
 

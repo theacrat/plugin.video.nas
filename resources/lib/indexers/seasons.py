@@ -34,9 +34,8 @@ class Seasons(BaseIndexer[int]):
         setPluginCategory(handle, self.series.name)
         endOfDirectory(handle, cacheToDisc=not self.external)
 
-    def _build_content(self, item, position):
+    def _build_content(self, item: int, position: int):
         list_item = NASListItem()
-
         list_item.setLabel(f"Season {item}" if item != 0 else "Specials")
         info_tag = list_item.getVideoInfoTag()
         info_tag.setPlaycount(
@@ -46,7 +45,7 @@ class Seasons(BaseIndexer[int]):
         )
         url_params = build_url(
             {
-                "mode": "build",
+                "mode": "indexer",
                 "func": "episodes",
                 "id": self.id,
                 "season": item,

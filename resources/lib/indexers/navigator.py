@@ -9,11 +9,8 @@ from addon import nas_addon
 from apis.StremioAPI import stremio_api
 from indexers.base_indexer import NASListItem
 from modules.kodi_utils import (
-    get_property,
-    container_refresh_input,
     is_home,
     build_url,
-    log,
 )
 from modules.library import get_continue_watching
 
@@ -74,7 +71,7 @@ class Navigator:
         if len(get_continue_watching()):
             add(
                 {
-                    "mode": "build",
+                    "mode": "indexer",
                     "func": "catalog",
                     "catalog_type": CatalogType.CONTINUE.value,
                 },
@@ -83,7 +80,7 @@ class Navigator:
         for i, c in enumerate(stremio_api.get_home_catalogs()):
             add(
                 {
-                    "mode": "build",
+                    "mode": "indexer",
                     "func": "catalog",
                     "catalog_type": CatalogType.HOME.value,
                     "idx": i,
@@ -94,7 +91,7 @@ class Navigator:
 
     def discover(self):
         for t in stremio_api.get_discover_types():
-            add({"mode": "build", "func": "discover", "discover_type": t}, t.title())
+            add({"mode": "indexer", "func": "discover", "discover_type": t}, t.title())
         self.end_directory()
 
     def library(self):
@@ -103,7 +100,7 @@ class Navigator:
         for i, t in enumerate(stremio_api.get_library_types()):
             add(
                 {
-                    "mode": "build",
+                    "mode": "indexer",
                     "func": "catalog",
                     "catalog_type": CatalogType.LIBRARY,
                     "library_filter": t if i else None,
@@ -124,7 +121,7 @@ class Navigator:
         for i, c in enumerate(stremio_api.get_search_catalogs()):
             add(
                 {
-                    "mode": "build",
+                    "mode": "indexer",
                     "func": "catalog",
                     "catalog_type": CatalogType.SEARCH.value,
                     "idx": i,
