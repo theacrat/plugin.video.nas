@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 import base64
-import json
-from functools import cached_property
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import math
 import zlib
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, get_type_hints
-from typing import TYPE_CHECKING
+
+from classes.base_class import StremioObject
 
 if TYPE_CHECKING:
     from classes.StremioMeta import Video
 
-from modules.kodi_utils import (
-    timestamp_zone_format_switcher,
+from modules.utils import (
     kodi_refresh,
     run_plugin,
 )
@@ -31,9 +29,8 @@ class BitField8:
     values: bytearray = field(init=False)
 
     def __post_init__(self):
-        n_bytes: int = math.ceil(self.n_size / 8)
         self.length: int = self.n_size
-        self.values: bytearray = bytearray(n_bytes)
+        self.values: bytearray = bytearray(math.ceil(self.n_size / 8))
 
     @classmethod
     def from_packed(cls: BitField8, compressed, length=None) -> BitField8:
@@ -156,27 +153,19 @@ class WatchedBitfield:
 
 
 @dataclass
-class WatchState:
-    lastWatched: str = field(default_factory=str)
+class WatchState(StremioObject):
+    lastWatched: datetime | None = field(default=None)
     timeWatched: int = field(default=0)
     timeOffset: int = field(default=0)
     overallTimeWatched: int = field(default=0)
     timesWatched: int = field(default=0)
     flaggedWatched: int = field(default=0)
     duration: int = field(default=0)
-    video_id: str = field(default_factory=str)
-    watched: str = field(default_factory=str)
+    video_id: str | None = field(default=None)
+    watched: str | None = field(default=None)
     noNotif: bool = field(default=False)
-    watched_bitfield: WatchedBitfield = field(
-        init=False,
-        repr=False,
-        compare=False,
-        default=None,
-    )
 
-    @cached_property
-    def last_watched(self):
-        return datetime.fromisoformat(timestamp_zone_format_switcher(self.lastWatched))
+    watched_bitfield: WatchedBitfield = field(init=False)
 
     def create_bitfield(self, video_ids: list[str]):
         self.watched_bitfield = (
@@ -187,40 +176,25 @@ class WatchState:
 
 
 @dataclass
-class StremioLibrary:
+class StremioLibrary(StremioObject):
     _id: str
+    name: str
     type: str
-    state: WatchState = field(default_factory=WatchState)
-    _ctime: str = field(default_factory=str)
-    _mtime: str = field(default_factory=str)
-    name: str = field(default_factory=str)
     poster: str = field(default_factory=str)
-    background: str = field(default_factory=str)
-    logo: str = field(default_factory=str)
-    year: str = field(default_factory=str)
+    posterShape: str = field(default_factory=str)
     removed: bool = field(default=True)
     temp: bool = field(default=True)
-    posterShape: str = field(default="poster")
+    _ctime: datetime | None = field(default=None)
+    _mtime: datetime | None = field(default=None)
+    state: WatchState = field(default_factory=WatchState)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> StremioLibrary:
-        return json.loads(json.dumps(data), object_hook=object_hook)
-
-    @classmethod
-    def from_list(cls, data: list[dict[str, Any]]) -> list[StremioLibrary]:
-        return [StremioLibrary.from_dict(a) for a in data]
-
-    @cached_property
+    @property
     def id(self):
         return self._id
 
-    @cached_property
-    def created_time(self):
-        return datetime.fromisoformat(timestamp_zone_format_switcher(self._ctime))
-
-    @cached_property
-    def modified_time(self):
-        return datetime.fromisoformat(timestamp_zone_format_switcher(self._mtime))
+    @property
+    def mtime(self):
+        return self._mtime
 
     def update_progress(
         self,
@@ -281,8 +255,8 @@ class StremioLibrary:
                     {
                         "mode": "playback",
                         "func": "media",
-                        "media_type": self.type,
-                        "id": self.id,
+                        "content_id": self.id,
+                        "content_type": self.type,
                         "episode": episode.next_episode.idx,
                     }
                 )
@@ -313,25 +287,10 @@ class StremioLibrary:
         kodi_refresh()
 
     def _set_time(self, set_last_watched: bool):
-        now = timestamp_zone_format_switcher(
-            datetime.now(timezone.utc).isoformat(timespec="milliseconds")
-        )
+        now = datetime.now(timezone.utc)
 
         self._mtime = now
         if not self._ctime:
             self._ctime = now
         if set_last_watched or not self.state.lastWatched:
             self.state.lastWatched = now
-
-
-def object_hook(d: dict[str, Any]) -> [WatchState | StremioLibrary | None]:
-    def filter_kwargs(cls: type, data: dict[str, Any]) -> dict[str, Any]:
-        fields = get_type_hints(cls)
-        return {k: v for k, v in data.items() if k in fields}
-
-    if "_id" in d:
-        return StremioLibrary(**filter_kwargs(StremioLibrary, d))
-    elif "lastWatched" in d:
-        return WatchState(**filter_kwargs(WatchState, d))
-
-    return None

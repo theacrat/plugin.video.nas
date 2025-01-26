@@ -1,66 +1,83 @@
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import StrEnum, auto
 from functools import cached_property
-from typing import Any, get_type_hints
+from typing import Any
 
 import xbmc
 
+from classes.StremioStream import StremioStream
+from classes.base_class import StremioObject
 from indexers.base_indexer import NASListItem
-from modules.kodi_utils import log, run_plugin, update_container
+from modules.utils import (
+    log,
+    run_plugin,
+    update_container,
+    KodiContentType,
+)
+
+
+class PosterShape(StrEnum):
+    SQUARE = auto()
+    LANDSCAPE = auto()
+    POSTER = auto()
+
+
+class StremioType(StrEnum):
+    MOVIE = auto()
+    SERIES = auto()
+    CHANNEL = auto()
+    TV = auto()
+    OTHER = auto()
+
+    @classmethod
+    def get_sort_key(cls, content_type: str) -> int:
+        return list(cls).index(content_type if content_type in cls else cls.OTHER)
 
 
 @dataclass
-class Trailer:
+class Trailer(StremioObject):
     source: str
-    type: str | None = None
+    type: str
 
 
 @dataclass
-class TrailerStream:
-    title: str
-    ytId: str
-
-
-@dataclass
-class Link:
+class Link(StremioObject):
     name: str
     category: str
-    url: str | None = None
+    url: str
 
 
 @dataclass
-class BehaviorHints:
-    defaultVideoId: str | None = None
-    hasScheduledVideos: bool | None = None
+class BehaviorHints(StremioObject):
+    defaultVideoId: str | None = field(default=None)
 
 
 @dataclass
-class Popularities:
-    trakt: float | None = None
-    stremio: float | None = None
-    stremio_lib: float | None = None
-    moviedb: float | None = None
-
-
-@dataclass
-class Video:
+class Video(StremioObject):
     id: str
-    title: str | None = ""
-    name: str | None = ""
-    released: str | None = ""
-    number: int | None = None
-    firstAired: str | None = None
-    tvdb_id: int | None = None
-    rating: str | None = None
-    overview: str | None = None
-    thumbnail: str | None = None
-    episode: int | None = None
-    description: str | None = None
-    season: int | None = None
-    parent: StremioMeta = field(init=False, repr=False, compare=False, default=None)
+    title: str
+    released: datetime
+    thumbnail: str | None = field(default=None)
+    streams: list[StremioStream] = field(default_factory=list)
+    available: bool | None = field(default=None)
+    episode: int | None = field(default=None)
+    season: int | None = field(default=None)
+    trailers: list[StremioStream] = field(default_factory=list)
+    overview: str | None = field(default=None)
+
+    parent: StremioMeta = field(init=False)
+
+    @classmethod
+    def transform_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+        if "name" in data and "title" not in data:
+            data["title"] = data["name"]
+        if "stream" in data:
+            data["streams"] = [data["stream"]]
+        return super().transform_dict(data)
 
     @property
     def watched(self):
@@ -85,27 +102,26 @@ class Video:
     def build_list_item(self) -> NASListItem:
         list_item = self.parent.build_list_item()
 
-        list_item.setLabel(self.name)
+        list_item.setLabel(self.title)
         if self.thumbnail:
             list_item.setArt({"fanart": self.thumbnail})
 
         info_tag: xbmc.InfoTagVideo = list_item.getVideoInfoTag()
-        info_tag.setTitle(self.name)
-        info_tag.setMediaType("episode")
+        info_tag.setTitle(self.title)
+        info_tag.setMediaType(KodiContentType.EPISODE)
         info_tag.setPlaycount(1 if self.watched else 0),
-        info_tag.setPlot(self.description)
+        info_tag.setPlot(self.overview)
+        info_tag.setPremiered(self.released.isoformat())
+        info_tag.setFirstAired(self.released.isoformat())
         info_tag.setTvShowTitle(self.parent.name)
-        # info_tag.setTvShowStatus(self.parent.status)
-        info_tag.setSeason(self.season)
-        info_tag.setEpisode(self.episode)
+        if self.season and self.episode:
+            info_tag.setSeason(self.season)
+            info_tag.setEpisode(self.episode)
         info_tag.setUniqueID(self.id, "stremio_video")
 
         progress_state = self.parent.library.state
         if progress_state.video_id == self.id:
             info_tag.setResumePoint(progress_state.timeOffset, progress_state.duration)
-        if self.firstAired:
-            info_tag.setPremiered(self.firstAired)
-            info_tag.setFirstAired(self.firstAired)
 
         cm_items: list[tuple[str, str]] = [
             (
@@ -127,51 +143,36 @@ class Video:
 
         return list_item
 
-    def __post_init__(self):
-        self.name = self.title or self.name
-        self.description = self.description or self.overview
-
 
 @dataclass
-class StremioMeta:
+class StremioMeta(StremioObject):
     from classes.StremioLibrary import StremioLibrary
 
     id: str
     type: str
     name: str
-    imdb_id: str | None = ""
-    kitsu_id: str | None = ""
-    poster: str | None = ""
-    background: str | None = ""
-    logo: str | None = ""
-    description: str | None = ""
-    releaseInfo: str | None = ""
-    year: str | None = None
-    runtime: str | None = None
-    status: str | None = ""
-    animeType: str | None = ""
-    slug: str | None = ""
-    country: str | None = ""
-    awards: str | None = ""
-    dvdRelease: str | None = ""
-    imdbRating: str | None = ""
-    moviedb_id: int | None = 0
-    tvdb_id: int | None = 0
-    popularities: Popularities | None = None
-    popularity: float | None = 0
-    released: str | None = ""
-    trailers: list[Trailer] = field(default_factory=list)
-    trailerStreams: list[TrailerStream] = field(default_factory=list)
-    videos: list[Video] = field(default_factory=list)
-    links: list[Link] = field(default_factory=list)
-    aliases: list[str] = field(default_factory=list)
     genres: list[str] = field(default_factory=list)
-    genre: list[str] = field(default_factory=list)
-    cast: list[str] = field(default_factory=list)
+    poster: str | None = field(default=None)
+    posterShape: str = field(default=PosterShape.POSTER)
+    background: str | None = field(default=None)
+    logo: str | None = field(default=None)
+    description: str | None = field(default=None)
+    releaseInfo: str | None = field(default=None)
     director: list[str] = field(default_factory=list)
-    writer: list[str] = field(default_factory=list)
+    cast: list[str] = field(default_factory=list)
+    imdbRating: str | None = field(default=None)
+    released: datetime | None = field(default=None)
+    trailers: list[Trailer] = field(default_factory=list)
+    links: list[Link] = field(default_factory=list)
+    videos: list[Video] = field(default_factory=list)
+    runtime: str | None = field(default=None)
+    language: str | None = field(default=None)
+    country: str | None = field(default=None)
+    awards: str | None = field(default=None)
+    website: str | None = field(default=None)
     behaviorHints: BehaviorHints = field(default_factory=BehaviorHints)
-    library: StremioLibrary = field(init=False, repr=False, compare=False, default=None)
+
+    library: StremioLibrary = field(init=False)
 
     @cached_property
     def runtime_seconds(self) -> int:
@@ -193,9 +194,9 @@ class StremioMeta:
 
     @cached_property
     def first_year(self):
-        if not self.year:
+        if not self.releaseInfo:
             return 0
-        match = re.search(r"\b\d+\b", self.year)
+        match = re.search(r"\b\d+\b", self.releaseInfo)
         return int(match.group()) if match else 0
 
     @cached_property
@@ -208,7 +209,7 @@ class StremioMeta:
 
     @property
     def watched(self) -> bool:
-        if self.type == "series":
+        if self.type == StremioType.SERIES:
             return (
                 not any(not i.watched for i in self.videos if i.season != 0)
                 and self.videos
@@ -219,63 +220,38 @@ class StremioMeta:
     @cached_property
     def kodi_type(self) -> str:
         match self.type:
-            case "series":
-                return "tvshow"
-            case "movie":
-                return "movie"
+            case StremioType.SERIES:
+                return KodiContentType.TVSHOW
+            case StremioType.MOVIE:
+                return KodiContentType.MOVIE
             case _:
-                return "video"
-
-    @cached_property
-    def kodi_status(self) -> str:
-        match self.status:
-            case "Ended":
-                return "Ended"
-            case "Cancelled":
-                return "Canceled"
-            case "Continuing":
-                return "Returning"
-            case _:
-                return ""
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> StremioMeta:
-        return json.loads(json.dumps(data), object_hook=object_hook)
-
-    @classmethod
-    def from_list(cls, data: list[dict[str, Any]]) -> list[StremioMeta]:
-        return [StremioMeta.from_dict(a) for a in data]
+                return KodiContentType.VIDEO
 
     def _consolidate_links(self, link_category: str, legacy_field: list[str]):
         try:
             if not legacy_field:
                 return
             self.links.extend(
-                Link(li, link_category)
+                Link(li, link_category, "")
                 for li in legacy_field
                 if not any(
                     i.name == li and i.category == link_category for i in self.links
                 )
             )
-        except:
+        except TypeError:
             from xbmc import LOGERROR
 
             log(f"Failed to consolidate: {link_category} from {legacy_field}", LOGERROR)
 
     def __post_init__(self):
-        if self.genre and not self.genres:
-            self.genres = self.genre
-            self.genre = None
-
         legacy_fields = [
             ("Genres", self.genres),
             ("Cast", self.cast),
-            ("Writers", self.writer),
             ("Directors", self.director),
         ]
 
-        for category, field in legacy_fields:
-            self._consolidate_links(category, field)
+        for category, legacy_field in legacy_fields:
+            self._consolidate_links(category, legacy_field)
 
         from apis.StremioAPI import stremio_api
 
@@ -302,7 +278,6 @@ class StremioMeta:
         list_item = NASListItem()
 
         list_item.setLabel(self.name)
-        # list_item.addContextMenuItems(cm)
         list_item.setArt(
             {
                 "poster": self.poster,
@@ -338,9 +313,9 @@ class StremioMeta:
         info_tag.setYear(int(self.first_year))
         info_tag.setDuration(self.runtime_seconds)
         info_tag.setCountries([self.country])
-        info_tag.setPremiered(self.released)
-        info_tag.setFirstAired(self.released)
-        info_tag.setIMDBNumber(self.imdb_id)
+        if self.released:
+            info_tag.setPremiered(self.released.isoformat())
+            info_tag.setFirstAired(self.released.isoformat())
         info_tag.setGenres(self.get_links_by_category("Genre"))
         info_tag.setWriters(self.get_links_by_category("Writers"))
         info_tag.setDirectors(self.get_links_by_category("Directors"))
@@ -349,9 +324,6 @@ class StremioMeta:
             {
                 "stremio": self.id,
                 "stremio_video": self.id,
-                "imdb": self.imdb_id,
-                "tmdb": str(self.moviedb_id),
-                "tvdb": str(self.tvdb_id),
             }
         )
         info_tag.setCast(
@@ -402,44 +374,4 @@ class StremioMeta:
         if progress_state.video_id == self.id:
             info_tag.setResumePoint(progress_state.timeOffset, progress_state.duration)
 
-        if self.type == "series":
-            info_tag.setTvShowStatus(self.kodi_status)
-
         return list_item
-
-
-def object_hook(
-    d: dict[str, Any]
-) -> [
-    Trailer
-    | TrailerStream
-    | Link
-    | BehaviorHints
-    | Popularities
-    | Video
-    | StremioMeta
-    | None
-]:
-    def filter_kwargs(cls: type, data: dict[str, Any]) -> dict[str, Any]:
-        fields = get_type_hints(cls)
-        return {k: v for k, v in data.items() if k in fields}
-
-    if all(k in d for k in ("id", "type")):
-        return StremioMeta(**filter_kwargs(StremioMeta, d))
-    elif "id" in d:
-        return Video(**filter_kwargs(Video, d))
-    elif all(k in d for k in ("source",)):
-        return Trailer(**filter_kwargs(Trailer, d))
-    elif all(k in d for k in ("title", "ytId")):
-        return TrailerStream(**filter_kwargs(TrailerStream, d))
-    elif all(k in d for k in ("name", "category", "url")):
-        return Link(**filter_kwargs(Link, d))
-    elif isinstance(d, dict) and any(
-        k in d for k in ("defaultVideoId", "hasScheduledVideos")
-    ):
-        return BehaviorHints(**filter_kwargs(BehaviorHints, d))
-    elif isinstance(d, dict) and any(
-        k in d for k in ("trakt", "stremio", "stremio_lib", "moviedb")
-    ):
-        return Popularities(**filter_kwargs(Popularities, d))
-    return

@@ -1,58 +1,42 @@
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass
-from typing import get_type_hints, Any
+from dataclasses import dataclass, field
+from typing import Any
+
+from classes.StremioSubtitle import StremioSubtitle
+from classes.base_class import StremioObject
 
 
 @dataclass
-class BehaviorHints:
-    bingeGroup: str | None = None
-    filename: str | None = None
-    notWebReady: bool | None = None
-    videoSize: int | None = None
+class BehaviorHints(StremioObject):
+    countryWhitelist: str | None = field(default=None)
+    notWebReady: bool | None = field(default=None)
+    proxyHeaders: str | None = field(default=None)
+    videoHash: str | None = field(default=None)
+    videoSize: int | None = field(default=None)
+    filename: str | None = field(default=None)
 
 
 @dataclass
-class StremioStream:
-    name: str
-    url: str | None = None
-    title: str | None = None
-    description: str | None = None
-    behaviorHints: BehaviorHints | None = None
-    hash: str | None = None
-    infoHash: str | None = None
-    fileIdx: int | None = None
-    magnet: str | None = None
-    nzb: str | None = None
-    seeders: int | None = None
-    peers: int | None = None
-    quality: str | None = None
-    resolution: str | None = None
-    language: str | None = None
-    is_cached: bool | None = None
-    size: int | None = None
-    type: str | None = None
-    adult: bool | None = None
-    sources: list[str] | None = None
+class StremioStream(StremioObject):
+    url: str | None = field(default=None)
+    ytId: str | None = field(default=None)
+    infoHash: str | None = field(default=None)
+    fileIdx: int | None = field(default=None)
+    externalUrl: str | None = field(default=None)
+
+    name: str | None = field(default=None)
+    description: str | None = field(default=None)
+    subtitles: list[StremioSubtitle] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
+    behaviorHints: BehaviorHints = field(default_factory=BehaviorHints)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> StremioStream:
-        return json.loads(json.dumps(data), object_hook=object_hook)
+    def transform_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+        if "title" in data:
+            data["description"] = data["title"]
+        return super().transform_dict(data)
 
-    @classmethod
-    def from_list(cls, data: list[dict[str, Any]]) -> list[StremioStream]:
-        return [StremioStream.from_dict(a) for a in data]
-
-
-def object_hook(d: dict[str, Any]) -> [StremioStream | BehaviorHints | None]:
-    def filter_kwargs(cls: type, data: dict[str, Any]) -> dict[str, Any]:
-        fields = get_type_hints(cls)
-        return {k: v for k, v in data.items() if k in fields}
-
-    if "name" in d:
-        return StremioStream(**filter_kwargs(StremioStream, d))
-    elif any(k in d for k in get_type_hints(BehaviorHints)):
-        return BehaviorHints(**filter_kwargs(BehaviorHints, d))
-
-    return
+    def __post_init__(self):
+        if not any([self.url, self.ytId, self.infoHash, self.externalUrl]):
+            raise ValueError("No resource given")

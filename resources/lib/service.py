@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import xbmc
 import xbmcgui
 
-from modules.kodi_utils import (
+from modules.utils import (
     log,
     kodi_window,
 )

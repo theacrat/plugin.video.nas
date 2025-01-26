@@ -1,22 +1,19 @@
-from typing import Any, TypeVar, get_type_hints
+from typing import TypeVar, Any
 from urllib.parse import parse_qsl
 
 from indexers.base_indexer import BaseIndexer
 from indexers.navigator import Navigator
-from modules.kodi_utils import external, parse_string
-
-
-def sys_exit_check():
-    return external()
-
+from modules.utils import external, parse_string, filter_dict
 
 T = TypeVar("T")
 
 
 def build_class(cls: type[T], data: dict[str, Any]) -> T:
-    fields = get_type_hints(cls)
-    filtered = {k: v for k, v in data.items() if k in fields}
-    return cls(**filtered)
+    return cls(**filter_dict(cls, data))
+
+
+def sys_exit_check():
+    return external()
 
 
 def routing(sys):
@@ -48,8 +45,6 @@ def routing(sys):
                     return navigator.library()
                 case "search":
                     return navigator.search()
-                case "settings":
-                    return navigator.settings()
 
         case "playback":
             match func:

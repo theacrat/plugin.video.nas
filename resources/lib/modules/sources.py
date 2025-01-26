@@ -9,9 +9,7 @@ from typing import Callable
 from xbmcplugin import endOfDirectory
 
 from apis.StremioAPI import stremio_api
-from classes.StremioMeta import StremioMeta
-from classes.StremioStream import StremioStream
-from modules.kodi_utils import (
+from modules.utils import (
     hide_busy_dialog,
     log,
 )
@@ -27,48 +25,44 @@ class PlayTypes(IntEnum):
 
 @dataclass
 class Sources:
-    id: str
-    media_type: str
+    from classes.StremioMeta import StremioMeta
+    from classes.StremioStream import StremioStream
+
+    content_id: str
+    content_type: str
     episode: int | None = None
     episode_id: str | None = None
     play_type: PlayTypes | None = PlayTypes.DEFAULT
-    pre_scrape: bool | None = True
-    background: bool | None = False
     meta: StremioMeta = field(init=False)
     results: list[list[StremioStream] | None] | None = field(init=False, default=None)
     result_listeners: list[
         Callable[[list[list[StremioStream] | None] | None, int], None]
     ] = field(init=False, default_factory=list)
-    progress_thread: Thread = field(init=False, default=None)
-    resolve_dialog_made: bool = field(init=False, default=False)
 
     def __post_init__(self):
-        self.meta = stremio_api.get_metadata_by_id(self.id, self.media_type)
+        self.meta = stremio_api.get_metadata_by_id(self.content_id, self.content_type)
+
         if self.episode_id:
             self.episode = next(
                 idx for idx, i in enumerate(self.meta.videos) if i.id == self.episode_id
             )
 
     def play(self):
-        hide_busy_dialog()
-
         return self.get_sources()
 
     def get_sources(self):
-        self.progress_thread = Thread(
+        Thread(
             target=stremio_api.get_streams_by_id,
             kwargs={
-                "id": (
+                "content_id": (
                     self.meta.videos[self.episode].id
-                    if self.media_type == "series"
+                    if self.episode
                     else self.meta.behaviorHints.defaultVideoId or self.meta.id
                 ),
-                "media_type": self.media_type,
+                "content_type": self.content_type,
                 "callback": self.process_results,
             },
-        )
-
-        self.progress_thread.start()
+        ).start()
 
         return self.display_results()
 
@@ -85,8 +79,9 @@ class Sources:
             result_listeners=self.result_listeners,
             meta=self.meta,
             episode=self.episode,
-            pre_scrape=self.pre_scrape,
         )
+
+        from classes.StremioStream import StremioStream
 
         selection: StremioStream | None = results_window.run()
 

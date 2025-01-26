@@ -1,13 +1,27 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
+from enum import StrEnum, auto
 from functools import cached_property
-from typing import Any, Union, get_type_hints
+
+from classes.base_class import StremioObject
+
+
+class ExtraType(StrEnum):
+    SEARCH = auto()
+    NOTIFICATION = "lastVideosIds"
+    DISCOVER = "genre"
+
+
+class AddonType(StrEnum):
+    CATALOG = auto()
+    META = auto()
+    STREAM = auto()
+    SUBTITLES = auto()
 
 
 @dataclass
-class Extra:
+class Extra(StremioObject):
     name: str
     isRequired: bool = field(default=False)
     options: list[str] = field(default_factory=list)
@@ -15,14 +29,14 @@ class Extra:
 
 
 @dataclass
-class StremioCatalog:
+class Catalog(StremioObject):
     id: str
     type: str
     name: str = field(default_factory=str)
     extra: list[Extra] = field(default_factory=list)
     extraRequired: list[str] = field(default_factory=list)
     extraSupported: list[str] = field(default_factory=list)
-    addon: StremioAddon = field(init=False, repr=False, compare=False, default=None)
+    addon: StremioAddon = field(init=False)
 
     @cached_property
     def title(self):
@@ -30,14 +44,14 @@ class StremioCatalog:
 
 
 @dataclass
-class Resource:
+class Resource(StremioObject):
     name: str
     types: list[str] = field(default_factory=list)
     idPrefixes: list[str] = field(default_factory=list)
 
 
 @dataclass
-class BehaviorHints:
+class BehaviorHints(StremioObject):
     adult: bool | None = field(default=None)
     p2p: bool | None = field(default=None)
     configurable: bool | None = field(default=None)
@@ -45,16 +59,16 @@ class BehaviorHints:
 
 
 @dataclass
-class Manifest:
+class Manifest(StremioObject):
     id: str
     version: str
     name: str
     description: str
     types: list[str]
-    catalogs: list[StremioCatalog]
-    resources: list[Union[Resource, str]]
+    catalogs: list[Catalog]
+    resources: list[Resource | str]
     behaviorHints: BehaviorHints = field(default_factory=BehaviorHints)
-    addonCatalogs: list[StremioCatalog] = field(default_factory=list)
+    addonCatalogs: list[Catalog] = field(default_factory=list)
     contactEmail: str | None = field(default=None)
     logo: str | None = field(default=None)
     background: str | None = field(default=None)
@@ -62,71 +76,28 @@ class Manifest:
 
 
 @dataclass
-class Flags:
-    official: bool
-    protected: bool
+class Flags(StremioObject):
+    official: bool = field(default_factory=bool)
+    protected: bool = field(default_factory=bool)
 
 
 @dataclass
-class StremioAddon:
+class StremioAddon(StremioObject):
     transportUrl: str
     transportName: str
     manifest: Manifest
     flags: Flags
-    legacy: bool = field(init=False)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> StremioAddon:
-        return json.loads(json.dumps(data), object_hook=object_hook)
-
-    @classmethod
-    def from_list(cls, data: list[dict[str, Any]]) -> list[StremioAddon]:
-        return [StremioAddon.from_dict(a) for a in data]
+    @cached_property
+    def legacy(self):
+        return not self.transportUrl.endswith("manifest.json")
 
     @cached_property
     def base_url(self):
         return self.transportUrl.split("/manifest.json")[0]
 
     def __post_init__(self):
-        self.legacy = not self.transportUrl.endswith("manifest.json")
         for c in self.manifest.catalogs:
             c.addon = self
-            if not c.name:
+            if not c.name and self.manifest:
                 c.name = self.manifest.name
-
-
-def object_hook(
-    d: dict[str, Any]
-) -> [
-    Extra
-    | StremioCatalog
-    | Resource
-    | BehaviorHints
-    | Manifest
-    | Flags
-    | StremioAddon
-    | None
-]:
-    def filter_kwargs(cls: type, data: dict[str, Any]) -> dict[str, Any]:
-        fields = get_type_hints(cls)
-        return {k: v for k, v in data.items() if k in fields}
-
-    if all(k in d for k in ("transportUrl", "transportName", "manifest", "flags")):
-        return StremioAddon(**filter_kwargs(StremioAddon, d))
-    elif all(k in d for k in ("id", "version", "name")):
-        return Manifest(**filter_kwargs(Manifest, d))
-    elif all(k in d for k in ("name", "types", "idPrefixes")):
-        return Resource(**filter_kwargs(Resource, d))
-    elif all(k in d for k in ("id", "type")):
-        return StremioCatalog(**filter_kwargs(StremioCatalog, d))
-    elif (
-        "name" in d
-        and len(d) == 1
-        or any(k in d for k in ("options", "isRequired", "optionsLimit"))
-    ):
-        return Extra(**filter_kwargs(Extra, d))
-    elif any(k in d for k in get_type_hints(BehaviorHints)):
-        return BehaviorHints(**filter_kwargs(BehaviorHints, d))
-    elif all(k in d for k in get_type_hints(Flags)):
-        return Flags(**filter_kwargs(Flags, d))
-    return

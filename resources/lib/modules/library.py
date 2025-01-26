@@ -2,8 +2,7 @@ import datetime
 
 from apis.StremioAPI import stremio_api
 from classes.StremioLibrary import StremioLibrary
-from classes.StremioMeta import Video, StremioMeta
-from modules.kodi_utils import timestamp_zone_format_switcher, dataclass_to_dict
+from classes.StremioMeta import Video, StremioMeta, StremioType
 
 
 def player_update(
@@ -18,8 +17,8 @@ def player_update(
     meta = stremio_api.get_metadata_by_id(content_id, content_type)
     episode: Video | None = None
 
-    if video_id != meta.id:
-        episode = next(v for v in meta.videos if v.id == video_id)
+    if video_id != meta.content_id:
+        episode = next(v for v in meta.videos if v.content_id == video_id)
 
     meta.library.update_progress(curr_time, total_time, video_id)
 
@@ -32,7 +31,7 @@ def player_update(
         "eventName": "traktPlaying" if playing else "traktPaused",
         "player": {
             "hasTrakt": True,
-            "libItemID": meta.id,
+            "libItemID": meta.content_id,
             "libItemName": meta.name,
             "libItemTimeDuration": total_time,
             "libItemTimeOffset": curr_time,
@@ -50,28 +49,24 @@ def get_continue_watching():
         if not last_watched:
             return True
 
-        released_time = datetime.datetime.fromisoformat(
-            timestamp_zone_format_switcher(released)
-        )
-        last_watched_time = datetime.datetime.fromisoformat(
-            timestamp_zone_format_switcher(last_watched)
-        )
         now = datetime.datetime.now(datetime.timezone.utc)
 
-        return last_watched_time < released_time < now
+        return last_watched < released < now
 
     data_store = stremio_api.get_data_store()
     results = {
         k: v
         for k, v in data_store.items()
-        if v.type != "other" and (v.temp or not v.removed) and v.state.timeOffset > 0
+        if v.type != StremioType.OTHER
+        and (v.temp or not v.removed)
+        and v.state.timeOffset > 0
     }
 
     notif_results = {
         k: v
         for k, v in data_store.items()
         if not v.state.noNotif
-        and v.type not in ["other", "movie"]
+        and v.type not in [StremioType.OTHER, StremioType.MOVIE]
         and not v.removed
         and not v.temp
         and not k in results
@@ -83,18 +78,17 @@ def get_continue_watching():
     ]
 
     metas = sorted(
-        [
-            StremioMeta.from_dict({"id": e.id, **dataclass_to_dict(e)})
-            for e in all_results
-        ],
-        key=lambda e: e.library.modified_time,
+        [StremioMeta(**{"id": e.id, **e.as_dict()}) for e in all_results],
+        key=lambda e: e.library.mtime,
         reverse=True,
     )
 
     return [
         i
         for i in metas
-        if not (i.id in notif_results and i.behaviorHints.defaultVideoId)
+        if not (
+            i.id in notif_results and i.behaviorHints and i.behaviorHints.defaultVideoId
+        )
         and not (
             i.id in notif_results
             and not any(

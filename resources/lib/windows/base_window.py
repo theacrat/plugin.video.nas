@@ -11,7 +11,7 @@ from xbmcgui import (
 )
 
 from addon import nas_addon
-from modules.kodi_utils import log
+from modules.utils import log
 
 T = TypeVar("T")
 

@@ -4,33 +4,35 @@ from dataclasses import dataclass, field
 from xbmcplugin import addDirectoryItems, setContent, setPluginCategory, endOfDirectory
 
 from apis.StremioAPI import stremio_api
-from classes.StremioMeta import StremioMeta
+from classes.StremioMeta import StremioMeta, StremioType
 from indexers.base_indexer import BaseIndexer, NASListItem
-from modules.kodi_utils import build_url
+from modules.utils import build_url, KodiDirectoryType
 
 
 @dataclass
 class Seasons(BaseIndexer[int]):
-    id: str
+    content_id: str
+    content_type: str
     series: StremioMeta = field(init=False)
 
     def __post_init__(self):
         handle = int(sys.argv[1])
 
-        self.series = stremio_api.get_metadata_by_id(self.id, "series")
+        self.series = stremio_api.get_metadata_by_id(self.content_id, self.content_type)
 
         data = self.series.seasons
         if len(data) == 1:
             from indexers.episodes import Episodes
 
             return Episodes(
-                id=self.id,
+                content_id=self.content_id,
+                content_type=self.content_type,
                 refreshed=self.refreshed,
                 season=data[0],
             )
 
         addDirectoryItems(handle, self._worker(data))
-        setContent(handle, "seasons")
+        setContent(handle, KodiDirectoryType.SEASONS)
         setPluginCategory(handle, self.series.name)
         endOfDirectory(handle, cacheToDisc=not self.external)
 
@@ -47,7 +49,8 @@ class Seasons(BaseIndexer[int]):
             {
                 "mode": "indexer",
                 "func": "episodes",
-                "id": self.id,
+                "content_id": self.content_id,
+                "content_type": self.content_type,
                 "season": item,
             }
         )

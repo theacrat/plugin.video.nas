@@ -8,13 +8,14 @@ import xbmc
 from xbmc import InfoTagVideo
 from xbmcgui import ListItem
 
-from classes.StremioMeta import StremioMeta
-from modules.kodi_utils import (
+from classes.StremioMeta import StremioMeta, StremioType
+from modules.utils import (
     hide_busy_dialog,
     close_all_dialog,
     notification,
     log,
     run_plugin,
+    KodiContentType,
 )
 
 
@@ -118,7 +119,7 @@ class NASPlayer(xbmc.Player):
             "content_type": self.state.stremio_type,
             "curr_time": round(curr_time * 1000),
             "total_time": round(self.state.total_time * 1000),
-            "playing": not self.state.paused and not self.state.stopped,
+            "playing": not self.state.paused,
             "start_stop": start_stop,
         }
 
@@ -126,9 +127,9 @@ class NASPlayer(xbmc.Player):
             target=run_plugin,
             args=(update_args, False),
         ).start()
+        hide_busy_dialog()
 
     def onAVStarted(self):
-        hide_busy_dialog()
         item: ListItem = self.getPlayingItem()
         video_tag: InfoTagVideo = item.getVideoInfoTag()
         stremio_id = video_tag.getUniqueID("stremio")
@@ -138,12 +139,14 @@ class NASPlayer(xbmc.Player):
             self.state = None
             return
 
-        stremio_type = "video"
+        stremio_type: str
         match video_tag.getMediaType():
-            case "episode":
-                stremio_type = "series"
-            case "movie":
-                stremio_type = "movie"
+            case KodiContentType.EPISODE:
+                stremio_type = StremioType.SERIES
+            case KodiContentType.MOVIE:
+                stremio_type = StremioType.MOVIE
+            case _:
+                stremio_type = StremioType.CHANNEL
 
         self.state = NASPlayerState(
             stremio_id, stremio_video_id, stremio_type, self.getTotalTime()

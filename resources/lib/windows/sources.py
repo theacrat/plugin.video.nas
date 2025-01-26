@@ -8,7 +8,7 @@ from addon import nas_addon
 from classes.StremioMeta import StremioMeta
 from classes.StremioStream import StremioStream
 from indexers.base_indexer import NASListItem
-from modules.kodi_utils import (
+from modules.utils import (
     hide_busy_dialog,
     notification,
 )
@@ -17,7 +17,6 @@ from windows.base_window import BaseDialog
 
 @dataclass
 class SourcesResults(BaseDialog[StremioStream]):
-    pre_scrape: bool = field(default=None)
     meta: StremioMeta = field(default=None)
     episode: int = field(default=None)
     results: list[list[StremioStream] | None] | None = field(default=None)
@@ -125,10 +124,8 @@ class SourcesResults(BaseDialog[StremioStream]):
             set_properties(
                 {
                     "name": item.name.replace("\n", "[CR]"),
-                    "description": (item.description or item.title).replace(
-                        "\n", "[CR]"
-                    ),
-                    "hash": item.hash,
+                    "description": item.description.replace("\n", "[CR]"),
+                    "hash": item.infoHash,
                     "url": item.url,
                     "addon_idx": addon_idx,
                     "stream_idx": count,

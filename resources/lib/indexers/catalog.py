@@ -7,10 +7,10 @@ from enum import IntEnum, auto
 from xbmc import InfoTagVideo
 from xbmcplugin import addDirectoryItems, setContent, setPluginCategory, endOfDirectory
 
-from classes.StremioAddon import StremioCatalog
-from classes.StremioMeta import StremioMeta
+from classes.StremioAddon import Catalog, ExtraType
+from classes.StremioMeta import StremioMeta, StremioType
 from indexers.base_indexer import BaseIndexer
-from modules.kodi_utils import build_url, run_plugin
+from modules.utils import build_url, run_plugin, KodiDirectoryType
 
 
 class CatalogType(IntEnum):
@@ -25,7 +25,7 @@ class CatalogType(IntEnum):
 class Catalog(BaseIndexer[StremioMeta]):
     catalog_type: CatalogType
     idx: int | None = -1
-    media_type: str | None = None
+    content_type: str | None = None
     search: str | None = None
     genre: str | None = None
     library_filter: str | None = None
@@ -35,7 +35,7 @@ class Catalog(BaseIndexer[StremioMeta]):
 
         name: str | None = None
         data: list[StremioMeta] | None = None
-        catalog: StremioCatalog | None = None
+        catalog: Catalog | None = None
 
         from apis.StremioAPI import stremio_api
 
@@ -48,14 +48,16 @@ class Catalog(BaseIndexer[StremioMeta]):
             case CatalogType.HOME:
                 catalog = (
                     c[self.idx]
-                    if len(c := stremio_api.get_home_catalogs()) > self.idx
+                    if len(c := stremio_api.home_catalogs) > self.idx
                     else None
                 )
             case CatalogType.DISCOVER:
                 catalog = (
                     c[self.idx]
                     if len(
-                        c := stremio_api.get_discover_catalogs_by_type(self.media_type)
+                        c := stremio_api.get_discover_catalogs_by_type(
+                            self.content_type
+                        )
                     )
                     > self.idx
                     else None
@@ -66,20 +68,21 @@ class Catalog(BaseIndexer[StremioMeta]):
             case CatalogType.SEARCH:
                 catalog = (
                     c[self.idx]
-                    if len(c := stremio_api.get_search_catalogs()) > self.idx
+                    if len(c := stremio_api.search_catalogs) > self.idx
                     else None
                 )
 
         if not data and catalog:
-            data = stremio_api.get_catalog(
-                catalog,
-                search=f"search={self.search}" if self.search else None,
-                genre=f"genre={self.genre}" if self.genre else None,
+            extra_type, extra_query = (
+                [ExtraType.SEARCH, self.search]
+                if self.search
+                else [ExtraType.DISCOVER, self.genre] if self.genre else [None, None]
             )
+            data = stremio_api.get_catalog(catalog, extra_type, extra_query)
             name = catalog.title
 
         addDirectoryItems(handle, self._worker(data))
-        setContent(handle, "tvshows")
+        setContent(handle, KodiDirectoryType.TVSHOWS)
         setPluginCategory(handle, name)
         endOfDirectory(handle, cacheToDisc=not self.external)
 
@@ -128,20 +131,25 @@ class Catalog(BaseIndexer[StremioMeta]):
                 {
                     "mode": "playback",
                     "func": "media",
-                    "media_type": "movie",
-                    "id": item.id,
+                    "content_id": item.id,
+                    "content_type": item.type,
                 }
             )
-            if item.type == "movie"
+            if item.type == StremioType.MOVIE
             else build_url(
-                {"mode": "indexer", "func": "seasons", "id": item.id}
+                {
+                    "mode": "indexer",
+                    "func": "seasons",
+                    "content_id": item.id,
+                    "content_type": item.type,
+                }
                 if not self.catalog_type == CatalogType.CONTINUE
                 or not item.library.state.video_id
                 else {
                     "mode": "playback",
                     "func": "media",
-                    "media_type": "series",
-                    "id": item.id,
+                    "content_id": item.id,
+                    "content_type": item.type,
                     "episode_id": item.library.state.video_id,
                 }
             )
@@ -153,5 +161,5 @@ class Catalog(BaseIndexer[StremioMeta]):
                 self.catalog_type == CatalogType.CONTINUE
                 and item.library.state.video_id
             )
-            and item.type != "movie",
+            and item.type != StremioType.MOVIE,
         )
