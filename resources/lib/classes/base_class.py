@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABCMeta
 from datetime import datetime, timezone
+from types import UnionType
 from typing import Any, get_type_hints, get_args, get_origin
 
 from modules.utils import filter_dict
@@ -26,7 +27,7 @@ class StremioObject(metaclass=StremioObjectMeta):
                     if isinstance(val, tuple):
                         return _cls(*val)
 
-                    if _cls == datetime:
+                    if _cls == datetime and val:
                         return datetime.fromisoformat(
                             val.replace("Z", "+00:00")
                         ).astimezone(timezone.utc)
@@ -34,6 +35,15 @@ class StremioObject(metaclass=StremioObjectMeta):
                     return _cls(val)
                 except TypeError:
                     pass
+
+        def _unwrap_args(_type: type) -> set[type]:
+            arg_set = set()
+            for _idx, _arg in enumerate(get_args(_type)):
+                if get_origin(_arg) is UnionType:
+                    arg_set.update(_unwrap_args(_arg))
+                else:
+                    arg_set.add(_arg)
+            return arg_set
 
         data = filter_dict(cls, data)
         type_hints = get_type_hints(cls)
@@ -43,14 +53,15 @@ class StremioObject(metaclass=StremioObjectMeta):
             if get_origin(val_type) is list:
                 if not isinstance(value, list):
                     value = [value]
-                args = set(get_args(val_type))
+
+                args = _unwrap_args(val_type)
                 for idx, item in enumerate(value):
                     if type(item) in args:
                         continue
                     value[idx] = _build_cls(args, item)
                 continue
 
-            types: set[type] = {val_type, *get_args(val_type)}
+            types: set[type] = {val_type, *_unwrap_args(val_type)}
             if type(value) not in types:
                 data[key] = _build_cls(types, value)
         return data

@@ -35,7 +35,12 @@ class StremioType(StrEnum):
 
     @classmethod
     def get_sort_key(cls, content_type: str) -> int:
-        return list(cls).index(content_type if content_type in cls else cls.OTHER)
+        enum: cls
+        try:
+            enum = cls(content_type)
+        except ValueError:
+            enum = cls.OTHER
+        return list(cls).index(enum)
 
 
 @dataclass
@@ -69,7 +74,7 @@ class Video(StremioObject):
     trailers: list[StremioStream] = field(default_factory=list)
     overview: str | None = field(default=None)
 
-    parent: StremioMeta = field(init=False)
+    parent: StremioMeta = field(init=False, repr=False, compare=False)
 
     @classmethod
     def transform_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -77,6 +82,8 @@ class Video(StremioObject):
             data["title"] = data["name"]
         if "stream" in data:
             data["streams"] = [data["stream"]]
+        if "firstAired" in data:
+            data["released"] = data["firstAired"]
         return super().transform_dict(data)
 
     @property
@@ -100,7 +107,7 @@ class Video(StremioObject):
         )
 
     def build_list_item(self) -> NASListItem:
-        list_item = self.parent.build_list_item()
+        list_item = self.parent.build_list_item(True)
 
         list_item.setLabel(self.title)
         if self.thumbnail:
@@ -172,7 +179,7 @@ class StremioMeta(StremioObject):
     website: str | None = field(default=None)
     behaviorHints: BehaviorHints = field(default_factory=BehaviorHints)
 
-    library: StremioLibrary = field(init=False)
+    library: StremioLibrary = field(init=False, repr=False, compare=False)
 
     @cached_property
     def runtime_seconds(self) -> int:
@@ -274,7 +281,7 @@ class StremioMeta(StremioObject):
     def get_links_by_category(self, category: str):
         return [l.name for l in self.links if l.category == category]
 
-    def build_list_item(self) -> NASListItem:
+    def build_list_item(self, base_only=False) -> NASListItem:
         list_item = NASListItem()
 
         list_item.setLabel(self.name)
@@ -289,7 +296,11 @@ class StremioMeta(StremioObject):
             }
         )
 
-        if self.videos and (bitfield := self.library.state.watched_bitfield):
+        if (
+            not base_only
+            and self.videos
+            and (bitfield := self.library.state.watched_bitfield)
+        ):
             episodes = [v for v in self.videos if v.season != 0]
             watched_episodes = [v for v in episodes if bitfield.get_video(v.id)]
             list_item.setProperties(
@@ -336,37 +347,55 @@ class StremioMeta(StremioObject):
         )
 
         cm_items: list[tuple[str, str]] = []
-        is_in_library = not (self.library.temp or self.library.removed)
-        cm_items.append(
-            (
-                f"{'Remove from' if is_in_library else 'Add to'} Library",
-                run_plugin(
-                    {
-                        "mode": "library",
-                        "func": "status",
-                        "content_id": self.id,
-                        "content_type": self.type,
-                        "status": not is_in_library,
-                    },
-                    build_only=True,
-                ),
-            )
-        )
 
-        cm_items.append(
-            (
-                "View relations",
-                update_container(
-                    {
-                        "mode": "indexer",
-                        "func": "relations",
-                        "content_id": self.id,
-                        "content_type": self.type,
-                    },
-                    build_only=True,
+        if not self.videos:
+            cm_items.append(
+                (
+                    f"Mark as {'Unwatched' if self.watched else 'Watched'}",
+                    run_plugin(
+                        {
+                            "mode": "library",
+                            "func": "watched_status",
+                            "content_id": self.id,
+                            "content_type": self.type,
+                            "status": not self.watched,
+                        },
+                        build_only=True,
+                    ),
                 ),
             )
-        )
+        if not base_only:
+            is_in_library = not (self.library.temp or self.library.removed)
+            cm_items.append(
+                (
+                    f"{'Remove from' if is_in_library else 'Add to'} Library",
+                    run_plugin(
+                        {
+                            "mode": "library",
+                            "func": "status",
+                            "content_id": self.id,
+                            "content_type": self.type,
+                            "status": not is_in_library,
+                        },
+                        build_only=True,
+                    ),
+                )
+            )
+
+            cm_items.append(
+                (
+                    "View relations",
+                    update_container(
+                        {
+                            "mode": "indexer",
+                            "func": "relations",
+                            "content_id": self.id,
+                            "content_type": self.type,
+                        },
+                        build_only=True,
+                    ),
+                )
+            )
 
         list_item.addContextMenuItems(cm_items)
 

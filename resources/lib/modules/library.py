@@ -3,6 +3,7 @@ import datetime
 from apis.StremioAPI import stremio_api
 from classes.StremioLibrary import StremioLibrary
 from classes.StremioMeta import Video, StremioMeta, StremioType
+from modules.utils import thread_function, log
 
 
 def player_update(
@@ -17,8 +18,8 @@ def player_update(
     meta = stremio_api.get_metadata_by_id(content_id, content_type)
     episode: Video | None = None
 
-    if video_id != meta.content_id:
-        episode = next(v for v in meta.videos if v.content_id == video_id)
+    if video_id != meta.id:
+        episode = next(v for v in meta.videos if v.id == video_id)
 
     meta.library.update_progress(curr_time, total_time, video_id)
 
@@ -31,7 +32,7 @@ def player_update(
         "eventName": "traktPlaying" if playing else "traktPaused",
         "player": {
             "hasTrakt": True,
-            "libItemID": meta.content_id,
+            "libItemID": meta.id,
             "libItemName": meta.name,
             "libItemTimeDuration": total_time,
             "libItemTimeOffset": curr_time,
@@ -43,6 +44,9 @@ def player_update(
 
 
 def get_continue_watching():
+    def _library_to_meta(l: StremioLibrary):
+        return stremio_api.get_metadata_by_id(l.id, l.type)
+
     def _check_date_time(last_watched, released):
         if not released:
             return False
@@ -72,13 +76,13 @@ def get_continue_watching():
         and not k in results
     }
 
-    all_results: list[StremioLibrary] = [
-        *results.values(),
+    items = [
+        *thread_function(_library_to_meta, list(results.values())),
         *stremio_api.get_notifications(notif_results.values()),
     ]
 
     metas = sorted(
-        [StremioMeta(**{"id": e.id, **e.as_dict()}) for e in all_results],
+        [e for e in items if e.library.mtime],
         key=lambda e: e.library.mtime,
         reverse=True,
     )
@@ -115,6 +119,6 @@ def dismiss_notification(content_id, content_type):
     meta.library.dismiss_notification()
 
 
-def mark_watched(content_id, content_type, video_id, status):
+def mark_watched(content_id, content_type, status, video_id=None):
     meta = stremio_api.get_metadata_by_id(content_id, content_type)
-    meta.library.mark_watched(video_id, status)
+    meta.library.mark_watched(status, video_id)

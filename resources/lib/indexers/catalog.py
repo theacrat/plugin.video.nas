@@ -4,13 +4,12 @@ import sys
 from dataclasses import dataclass
 from enum import IntEnum, auto
 
-from xbmc import InfoTagVideo
-from xbmcplugin import addDirectoryItems, setContent, setPluginCategory, endOfDirectory
-
 from classes.StremioAddon import Catalog, ExtraType
 from classes.StremioMeta import StremioMeta, StremioType
-from indexers.base_indexer import BaseIndexer
-from modules.utils import build_url, run_plugin, KodiDirectoryType
+from indexers.base_indexer import BaseIndexer, NASListItem
+from modules.utils import KodiDirectoryType, build_url, run_plugin
+from xbmc import InfoTagVideo
+from xbmcplugin import addDirectoryItems, endOfDirectory, setContent, setPluginCategory
 
 
 class CatalogType(IntEnum):
@@ -86,8 +85,10 @@ class Catalog(BaseIndexer[StremioMeta]):
         setPluginCategory(handle, name)
         endOfDirectory(handle, cacheToDisc=not self.external)
 
-    def _build_content(self, item: StremioMeta, idx: int):
-        list_item = item.build_list_item()
+    def _build_content(
+        self, item: StremioMeta, position: int
+    ) -> tuple[str, NASListItem, bool]:
+        list_item = item.build_list_item(self.catalog_type == CatalogType.CONTINUE)
         context_menu = []
 
         if self.catalog_type == CatalogType.CONTINUE:

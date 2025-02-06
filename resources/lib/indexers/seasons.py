@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from xbmcplugin import addDirectoryItems, setContent, setPluginCategory, endOfDirectory
 
 from apis.StremioAPI import stremio_api
-from classes.StremioMeta import StremioMeta, StremioType
+from classes.StremioMeta import StremioMeta
 from indexers.base_indexer import BaseIndexer, NASListItem
 from modules.utils import build_url, KodiDirectoryType
 

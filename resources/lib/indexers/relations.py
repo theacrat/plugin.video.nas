@@ -7,7 +7,7 @@ from xbmcplugin import addDirectoryItems, setContent, setPluginCategory, endOfDi
 from apis.StremioAPI import stremio_api
 from classes.StremioMeta import Link, StremioType
 from indexers.base_indexer import BaseIndexer, NASListItem
-from modules.utils import build_url, log, KodiDirectoryType
+from modules.utils import build_url, KodiDirectoryType
 
 
 @dataclass
@@ -19,7 +19,6 @@ class Relations(BaseIndexer[Link]):
         handle = int(sys.argv[1])
 
         series = stremio_api.get_metadata_by_id(self.content_id, self.content_type)
-        log(series.relations)
         addDirectoryItems(handle, self._worker(series.relations))
         setContent(handle, KodiDirectoryType.SETS)
         setPluginCategory(handle, series.name)

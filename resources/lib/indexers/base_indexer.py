@@ -28,7 +28,7 @@ class BaseIndexer(Generic[T]):
         raise NotImplementedError("Subclasses must implement build_content")
 
     def _worker(self, data: list[T]) -> list[tuple[str, ListItem, bool] | None]:
-        def _build_content(item: T) -> tuple[str, ListItem, bool] | None:
+        def _build(item: T) -> tuple[str, ListItem, bool] | None:
             return self._build_content(item, data.index(item))
 
-        return thread_function(_build_content, data)
+        return thread_function(_build, data)

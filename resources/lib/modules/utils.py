@@ -179,10 +179,16 @@ def filter_dict(cls: type, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def classes_from_list(cls: type, data: list[dict[str, Any]]):
-    return [cls(**d) for d in data]
+    results = []
+    for d in data:
+        try:
+            results.append(cls(**d))
+        except TypeError:
+            pass
+    return results
 
 
-def thread_function(func: Callable, enumerable: list):
+def thread_function(func: Callable, enumerable: list) -> list:
     from threading import Thread
 
     results = [None for _ in enumerable]

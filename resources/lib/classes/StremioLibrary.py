@@ -165,7 +165,9 @@ class WatchState(StremioObject):
     watched: str | None = field(default=None)
     noNotif: bool = field(default=False)
 
-    watched_bitfield: WatchedBitfield = field(init=False)
+    watched_bitfield: WatchedBitfield | None = field(
+        init=False, repr=False, compare=False, default=None
+    )
 
     def create_bitfield(self, video_ids: list[str]):
         self.watched_bitfield = (
@@ -274,9 +276,12 @@ class StremioLibrary(StremioObject):
         self._set_time(True)
         self.push()
 
-    def mark_watched(self, video_id, status):
-        self.state.watched_bitfield.set_video(video_id, status)
-        self.state.watched = self.state.watched_bitfield.serialize()
+    def mark_watched(self, status, video_id):
+        if video_id:
+            self.state.watched_bitfield.set_video(video_id, status)
+            self.state.watched = self.state.watched_bitfield.serialize()
+        else:
+            self.state.timesWatched = int(status)
         self.push()
 
     def push(self):

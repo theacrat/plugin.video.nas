@@ -36,7 +36,7 @@ class Catalog(StremioObject):
     extra: list[Extra] = field(default_factory=list)
     extraRequired: list[str] = field(default_factory=list)
     extraSupported: list[str] = field(default_factory=list)
-    addon: StremioAddon = field(init=False)
+    addon: StremioAddon = field(init=False, repr=False, compare=False)
 
     @cached_property
     def title(self):
