@@ -80,6 +80,9 @@ class Catalog(BaseIndexer[StremioMeta]):
             data = stremio_api.get_catalog(catalog, extra_type, extra_query)
             name = catalog.title
 
+        if not data:
+            data = []
+
         addDirectoryItems(handle, self._worker(data))
         setContent(handle, KodiDirectoryType.TVSHOWS)
         setPluginCategory(handle, name)

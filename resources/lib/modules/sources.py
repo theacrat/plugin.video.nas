@@ -56,7 +56,7 @@ class Sources:
             kwargs={
                 "content_id": (
                     self.meta.videos[self.episode].id
-                    if self.episode
+                    if self.episode is not None
                     else self.meta.behaviorHints.defaultVideoId or self.meta.id
                 ),
                 "content_type": self.content_type,
