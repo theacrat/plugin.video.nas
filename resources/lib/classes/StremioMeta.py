@@ -127,8 +127,8 @@ class Video(StremioObject):
         info_tag.setUniqueID(self.id, "stremio_video")
 
         progress_state = self.parent.library.state
-        if progress_state.video_id == self.id:
-            info_tag.setResumePoint(progress_state.timeOffset, progress_state.duration)
+        if progress_state.video_id == self.id and progress_state.timeOffset > 1:
+            info_tag.setResumePoint(progress_state.timeOffset / 1000, progress_state.duration / 1000)
 
         cm_items: list[tuple[str, str]] = [
             (
@@ -400,7 +400,7 @@ class StremioMeta(StremioObject):
         list_item.addContextMenuItems(cm_items)
 
         progress_state = self.library.state
-        if progress_state.video_id == self.id:
-            info_tag.setResumePoint(progress_state.timeOffset, progress_state.duration)
+        if progress_state.video_id == self.id and progress_state.timeOffset > 1:
+            info_tag.setResumePoint(progress_state.timeOffset / 1000, progress_state.duration / 1000)
 
         return list_item
