@@ -6,4 +6,7 @@
 		<setting id="stremio.token" type="text" visible="false"/>
 		<setting id="stremio.user" label="Stremio user:" type="text" enable="false" visible="!eq(-1,)"/>
 	</category>
+	<category id="playback" label="Playback">
+		<setting label="Auto-play next episode" type="bool" id="playback.auto_play_next_episode" default="true"/>
+	</category>
 </settings>

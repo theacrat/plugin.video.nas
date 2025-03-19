@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from modules.utils import (
     kodi_refresh,
     run_plugin,
+    get_setting,
 )
 
 STREMIO_WATCHED_COEFFICIENT = 0.7
@@ -253,6 +254,10 @@ class StremioLibrary(StremioObject):
                 state.timeWatched = 0
                 state.flaggedWatched = 0
                 state.timeOffset = 1
+
+                if not get_setting("playback.auto_play_next_episode"):
+                    return
+
                 run_plugin(
                     {
                         "mode": "playback",
