@@ -8,7 +8,7 @@ This addon pulls your library, catalogs, streams, and more from your Stremio acc
 
 As of now, you don't (unless you know how to install from source).
 
-Once it's in a more acceptable state (e.g. caching as to not hammer Stremio's servers), I will make a proper release and install guide.
+Once it's in a more acceptable state, I will make a proper release and install guide.
 
 ## Features
 
@@ -28,7 +28,7 @@ I will **NOT** add features that are not in Stremio. The whole point is keeping 
 - [ ] Calendar
 - [x] Playing URL / debrid sources
 - [ ] Playing torrent sources
-- [ ] Caching
+- [x] Library caching
 
 ## License
 
