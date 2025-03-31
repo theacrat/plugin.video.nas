@@ -48,9 +48,9 @@ def get_continue_watching():
         return stremio_api.get_metadata_by_id(l.id, l.type)
 
     def _check_date_time(last_watched, released):
-        if not released:
+        if released is None:
             return False
-        if not last_watched:
+        if last_watched is None:
             return True
 
         now = datetime.datetime.now(datetime.timezone.utc)

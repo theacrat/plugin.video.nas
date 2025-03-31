@@ -248,7 +248,7 @@ class StremioLibrary(StremioObject):
             stremio_api.get_subtitles_by_id(video_id, self.type)
 
             state.timeOffset = 0
-            if episode and episode.next_episode:
+            if episode is not None and episode.next_episode:
                 state.video_id = episode.next_episode.id
                 state.overallTimeWatched += state.timeWatched
                 state.timeWatched = 0

@@ -66,7 +66,7 @@ class SourcesResults(BaseDialog[StremioStream]):
             return
         self.add_items(self.window_id, chain_list)
         self.setFocusId(self.window_id)
-        if not selected_position:
+        if selected_position is None:
             self.select_item(self.window_id, 0)
         elif selected_item:
             a_idx = selected_item.getProperty("addon_idx")
