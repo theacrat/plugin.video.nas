@@ -365,17 +365,22 @@ class StremioAPI:
 
     def get_notifications(self, library_items: list[StremioMeta]):
         def _get_notification_catalog(catalog: Catalog):
+            ids = [
+                l.id
+                for l in library_items
+                if any(
+                    l.id.startswith(prefix)
+                    for prefix in catalog.addon.manifest.idPrefixes
+                )
+            ]
+
+            if not len(ids):
+                return []
+
             return self.get_catalog(
                 catalog,
                 ExtraType.NOTIFICATION,
-                [
-                    l.id
-                    for l in library_items
-                    if any(
-                        l.id.startswith(prefix)
-                        for prefix in catalog.addon.manifest.idPrefixes
-                    )
-                ],
+                ids,
             )
 
         catalogs = self.notification_catalogs

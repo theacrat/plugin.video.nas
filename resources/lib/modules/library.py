@@ -82,7 +82,7 @@ def get_continue_watching():
     ]
 
     metas = sorted(
-        [e for e in items if e.library.mtime],
+        [e for e in items if e.library.mtime is not None],
         key=lambda e: e.library.mtime,
         reverse=True,
     )
