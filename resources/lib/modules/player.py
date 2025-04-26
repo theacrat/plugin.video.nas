@@ -43,7 +43,9 @@ def kill_dialog():
 def make_listing(url, resume_point, meta: StremioMeta, episode: int | None):
     list_item: ListItem
     list_item = (
-        meta.videos[episode].build_list_item() if episode is not None else meta.build_list_item()
+        meta.videos[episode].build_list_item()
+        if episode is not None
+        else meta.build_list_item()
     )
     info_tag = list_item.getVideoInfoTag()
     info_tag.setFilenameAndPath(url)

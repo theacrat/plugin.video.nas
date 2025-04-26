@@ -128,7 +128,9 @@ class Video(StremioObject):
 
         progress_state = self.parent.library.state
         if progress_state.video_id == self.id and progress_state.timeOffset > 1:
-            info_tag.setResumePoint(progress_state.timeOffset / 1000, progress_state.duration / 1000)
+            info_tag.setResumePoint(
+                progress_state.timeOffset / 1000, progress_state.duration / 1000
+            )
 
         cm_items: list[tuple[str, str]] = [
             (
@@ -185,19 +187,23 @@ class StremioMeta(StremioObject):
     def runtime_seconds(self) -> int:
         if not self.runtime:
             return 0
+        
+        try:
+            import re
 
-        import re
+            digits = re.findall(r"\d+", self.runtime)
+            if not digits:
+                return 0
+            
+            seconds = 0
+            if len(digits) > 1:
+                seconds += int(digits[-2]) * 3600
+            return seconds + int(digits[-1]) * 60
+        except:
+            from xbmc import LOGERROR
 
-        rt = re.sub(
-            r"([a-z])min|(?<!\w)([a-z])(?!\w)",
-            "",
-            str(self.runtime).lower().replace(" ", ""),
-        )
-        seconds = 0
-        if "h" in rt:
-            h, rt = rt.split("h")
-            seconds += int(h) * 3600
-        return seconds + int(rt.replace("mins", "").replace("min", "")) * 60
+            log(f"Failed to parse runtime: {self.runtime}", LOGERROR)
+            return 0
 
     @cached_property
     def first_year(self):
@@ -401,6 +407,8 @@ class StremioMeta(StremioObject):
 
         progress_state = self.library.state
         if progress_state.video_id == self.id and progress_state.timeOffset > 1:
-            info_tag.setResumePoint(progress_state.timeOffset / 1000, progress_state.duration / 1000)
+            info_tag.setResumePoint(
+                progress_state.timeOffset / 1000, progress_state.duration / 1000
+            )
 
         return list_item

@@ -98,7 +98,8 @@ class Catalog(BaseIndexer[StremioMeta]):
             if item.library.state.video_id:
                 tag: InfoTagVideo = list_item.getVideoInfoTag()
                 tag.setResumePoint(
-                    item.library.state.timeOffset / 1000, item.library.state.duration / 1000
+                    item.library.state.timeOffset / 1000,
+                    item.library.state.duration / 1000,
                 )
                 context_menu.append(
                     (
