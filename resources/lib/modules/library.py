@@ -83,7 +83,11 @@ def get_continue_watching():
 
     metas = sorted(
         [e for e in items if e.library.mtime is not None],
-        key=lambda e: e.library.mtime,
+        key=lambda e: (
+            max(
+                next(v for v in reversed(e.videos) if v.aired).released, e.library.mtime
+            )
+        ),
         reverse=True,
     )
 

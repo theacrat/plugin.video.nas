@@ -108,6 +108,8 @@ class NASPlayer(xbmc.Player):
             curr_time = self.state.total_time
             self.state.stopped = True
         else:
+            if (curr_time >= self.state.total_time):
+                return
             curr_time = override_time if override_time else self.getTime()
             self.state.last_updated = now
         curr_time = max(curr_time, 0)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum, auto
 from functools import cached_property
 from typing import Any
@@ -35,7 +35,7 @@ class StremioType(StrEnum):
 
     @classmethod
     def get_sort_key(cls, content_type: str) -> int:
-        enum: cls
+        enum
         try:
             enum = cls(content_type)
         except ValueError:
@@ -105,6 +105,13 @@ class Video(StremioObject):
         return (
             self.parent.videos[self.idx + 1] if self.parent.videos[-1] != self else None
         )
+
+    @cached_property
+    def aired(self) -> bool:
+        if self.released is None:
+            return False
+        now = datetime.now(timezone.utc)
+        return self.released < now
 
     def build_list_item(self) -> NASListItem:
         list_item = self.parent.build_list_item(True)
@@ -187,14 +194,14 @@ class StremioMeta(StremioObject):
     def runtime_seconds(self) -> int:
         if not self.runtime:
             return 0
-        
+
         try:
             import re
 
             digits = re.findall(r"\d+", self.runtime)
             if not digits:
                 return 0
-            
+
             seconds = 0
             if len(digits) > 1:
                 seconds += int(digits[-2]) * 3600

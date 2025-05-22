@@ -399,9 +399,10 @@ class StremioAPI:
         if extra_type and extra_query:
             query = f"{query}/{extra_type}={','.join(extra_query) if type(extra_query) is list else extra_query}"
 
-        response = self._get(query).get("metas", [])
+        response = self._get(query)
+        meta = response.get("metas", []) or response.get("metasDetailed", [])
 
-        return classes_from_list(StremioMeta, response)
+        return classes_from_list(StremioMeta, meta)
 
     def send_events(self, events):
         return self._post("events", {"events": events})
