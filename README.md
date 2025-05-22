@@ -6,13 +6,13 @@ This addon pulls your library, catalogs, streams, and more from your Stremio acc
 
 ## Installation
 
-As of now, you don't (unless you know how to install from source).
-
-Once it's in a more acceptable state, I will make a proper release and install guide.
+Download the ZIP file from releases. I may set up a repository eventually (if anyone actually uses this).
 
 ## Features
 
-I will **NOT** add features that are not in Stremio. The whole point is keeping it simple by only reaching feature parity. If you need something more advanced, use one of the plethora of other addons.
+I will **NOT** add features that are not in Stremio. The whole point is keeping it simple ~~by only reaching feature parity~~. If you need something more advanced, use one of the plethora of other addons.
+
+I've decided that I actually don't care about adding the unchecked features below. Kodi is either not a great platform for implementing them (e.g. subtitles - the system works entirely differently, making it hard to automate adding subs), or has a better, more native way of accessing them (e.g. live TV). The current feature set should cover the majority of users.
 
 **THIS IS IN AN EARLY STAGE OF DEVELOPMENT - BUGS ARE LIKELY**
 
