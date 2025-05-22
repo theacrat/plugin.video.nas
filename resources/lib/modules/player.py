@@ -52,7 +52,7 @@ def make_listing(url, resume_point, meta: StremioMeta, episode: int | None):
 
     list_item.setPath(url)
     list_item.setProperty("IsPlayable", "true")
-    list_item.setProperty("StartPercent", str(resume_point))
+    list_item.setProperty("StartOffset", str(resume_point / 1000))
     return list_item
 
 
@@ -110,10 +110,11 @@ class NASPlayer(xbmc.Player):
         else:
             curr_time = override_time if override_time else self.getTime()
             self.state.last_updated = now
-            if curr_time >= self.state.total_time:
-                return
         curr_time = max(curr_time, 0)
         self.state.last_time = curr_time
+
+        if curr_time >= self.state.total_time and not (stopped or finished):
+            return
 
         update_args = {
             "mode": "library",

@@ -51,9 +51,9 @@ def routing(sys):
                 case "media":
                     from modules.sources import Sources
 
-                    return build_class(Sources, params).play(
-                        sys.argv[3] == "resume:true"
-                    )
+                    if sys.argv[3]:
+                        params["resume"] = sys.argv[3].split(":")[1]
+                    return build_class(Sources, params).play()
 
         case "indexer":
             if "refreshed" not in params:
