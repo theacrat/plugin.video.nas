@@ -245,7 +245,7 @@ class StremioLibrary(StremioObject):
         if state.timeOffset > (state.duration * STREMIO_CREDITS_COEFFICIENT):
             from apis.StremioAPI import stremio_api
 
-            stremio_api.get_subtitles_by_id(video_id, self.type)
+            stremio_api.get_subtitles_by_id(video_id, self.type, "")
 
             state.timeOffset = 0
             if episode is not None and episode.next_episode:

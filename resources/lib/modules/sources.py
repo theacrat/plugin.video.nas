@@ -39,6 +39,8 @@ class Sources:
         Callable[[list[list[StremioStream] | None] | None, int], None]
     ] = field(init=False, default_factory=list)
 
+    resume: bool = field(init=False, default=False)
+
     def __post_init__(self):
         self.meta = stremio_api.get_metadata_by_id(self.content_id, self.content_type)
 
@@ -47,7 +49,8 @@ class Sources:
                 idx for idx, i in enumerate(self.meta.videos) if i.id == self.episode_id
             )
 
-    def play(self):
+    def play(self, resume: bool = False):
+        self.resume = resume
         return self.get_sources()
 
     def get_sources(self):
@@ -98,6 +101,11 @@ class Sources:
                 source = results[0]
             hide_busy_dialog()
             playback_percent = 0.0
+            if self.resume:
+                playback_percent = (
+                    self.meta.library.state.timeOffset
+                    / self.meta.library.state.duration
+                ) * 100
             NASPlayer().run(
                 source.url,
                 playback_percent,

@@ -324,11 +324,11 @@ class StremioAPI:
         thread_function(_get_stream, stream_addons)
 
     def get_subtitles_by_id(
-        self, content_id: str, content_type: str
+        self, content_id: str, content_type: str, filename: str
     ) -> list[StremioSubtitle]:
         def _get_subs(item: StremioAddon):
             response = self._get(
-                f"{item.base_url}/{AddonType.SUBTITLES}/{content_type}/{content_id}"
+                f"{item.base_url}/{AddonType.SUBTITLES}/{content_type}/{content_id}/filename={filename}"
             )
             return classes_from_list(StremioSubtitle, response.get("subtitles", []))
 

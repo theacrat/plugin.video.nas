@@ -3,7 +3,7 @@ from urllib.parse import parse_qsl
 
 from indexers.base_indexer import BaseIndexer
 from indexers.navigator import Navigator
-from modules.utils import external, parse_string, filter_dict
+from modules.utils import external, log, parse_string, filter_dict
 
 T = TypeVar("T")
 
@@ -51,7 +51,9 @@ def routing(sys):
                 case "media":
                     from modules.sources import Sources
 
-                    return build_class(Sources, params).play()
+                    return build_class(Sources, params).play(
+                        sys.argv[3] == "resume:true"
+                    )
 
         case "indexer":
             if "refreshed" not in params:

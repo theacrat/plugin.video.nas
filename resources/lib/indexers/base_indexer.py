@@ -22,7 +22,7 @@ class BaseIndexer(Generic[T]):
         init=False,
         default=lambda: nas_addon.name != getInfoLabel("Container.PluginName"),
     )
-    refreshed: [bool | None]
+    refreshed: bool | None
 
     def _build_content(self, item: T, position: int) -> tuple[str, ListItem, bool]:
         raise NotImplementedError("Subclasses must implement build_content")
