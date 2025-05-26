@@ -78,14 +78,16 @@ def get_continue_watching():
 
     items = [
         *thread_function(_library_to_meta, list(results.values())),
-        *stremio_api.get_notifications(notif_results.values()),
+        *stremio_api.get_notifications(list(notif_results.values())),
     ]
 
     metas = sorted(
         [e for e in items if e.library.mtime is not None],
         key=lambda e: (
             max(
-                next(v for v in reversed(e.videos) if v.aired).released, e.library.mtime
+                next((v.released for v in reversed(e.videos) if v.aired), None)
+                or datetime.datetime.fromtimestamp(0).astimezone(datetime.timezone.utc),
+                e.library.mtime,
             )
         ),
         reverse=True,

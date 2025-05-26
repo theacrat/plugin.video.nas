@@ -363,7 +363,7 @@ class StremioAPI:
     def get_discover_catalogs_by_type(self, catalog_type: str) -> list[Catalog]:
         return [c for c in self.discover_catalogs if c.type == catalog_type]
 
-    def get_notifications(self, library_items: list[StremioMeta]):
+    def get_notifications(self, library_items: list[StremioLibrary]):
         def _get_notification_catalog(catalog: Catalog):
             ids = [
                 l.id
