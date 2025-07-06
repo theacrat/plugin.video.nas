@@ -370,7 +370,7 @@ class StremioAPI:
                 for l in library_items
                 if any(
                     l.id.startswith(prefix)
-                    for prefix in catalog.addon.manifest.idPrefixes
+                    for prefix in (catalog.addon.manifest.idPrefixes or [])
                 )
             ]
 
