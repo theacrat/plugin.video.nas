@@ -6,6 +6,8 @@ This addon pulls your library, catalogs, streams, and more from your Stremio acc
 
 ## Installation
 
+Doesn't work on Windows or Xbox, sorry. Hopefully they bump the Python version for Kodi 22.
+
 Download the ZIP file from releases. I may set up a repository eventually (if anyone actually uses this).
 
 ## Features
